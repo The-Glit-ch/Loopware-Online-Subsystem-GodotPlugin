@@ -21,22 +21,49 @@ extends HTTPRequest
 # Public Variables
 
 # Private Variables
+var _LossConfig: Dictionary
+var _Logging: _LoggingModule
 
 # Onready Variables
 
 # _init()
-# func _init() -> void:
-# 	pass
+func _init(config: Dictionary) -> void:
+	# Store a copy of the configuation file
+	_LossConfig = config
 
-# _ready()
+	# Initialize the logger
+	_Logging = _LoggingModule.new()
+	_Logging.enableDevLogging(_LossConfig.enableDeveloperLogs)
+ 
 # func _ready() -> void:
-# 	pass
+#	return
 
 # _other()
 
 # Public Methods
-func register(authorizationServerURL: String, clientID: String) -> GDScriptFunctionState:
+func register(authorizationServerURL: String, clientID: String) -> void:
+	# Make request
 	self.request("%s/auth/server/register" % [authorizationServerURL], ["Authorization: Bearer %s" % [clientID], "User-Agent: Godot-LossAPI"], true, HTTPClient.METHOD_POST) 
-	return yield(self, "request_completed")
+	
+	# Logs
+	_Logging.log(["Registering client"])
+	_Logging.devLog(["Registering client [\"%s\"] to Authorization Server [\"%s\"]" % [clientID, authorizationServerURL]])
+	
+	# Fetch and parse data
+	var rawRequest = yield(self, "request_completed")
+	var formatedData: Dictionary = {
+		"funcStatus": int(rawRequest[0]),
+		"resStatus": int(rawRequest[1]),
+		"resHeaders": PoolStringArray(rawRequest[2]),
+		"resData": parse_json(PoolByteArray(rawRequest[3]).get_string_from_utf8())
+	}
+
+	# Error handling
+	if formatedData.funcStatus != OK:
+		_Logging.err(["Error while registering client! || Code: %s" % [formatedData.funcStatus]])
+		_Logging.devErr(["Server URL: \"%s\"\nClient ID: \"%s\"" % [_Logging.authorizationServerURL, _Logging.clientID]])
+	
+	if formatedData.resStatus != 200:
+		_Logging.err([])
 
 # Private Methods

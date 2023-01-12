@@ -1,7 +1,7 @@
 # Tool
 
 # Class & Extends
-class_name Loss extends Node
+extends Node
 
 # Docstring
 # Loopware Online Subsystems @ Godot Plugin || Main file for the plugin
@@ -13,6 +13,7 @@ class_name Loss extends Node
 # Enums
 
 # Constants
+const VERSION_STRING: String = "1.0.0" #Major.Minor.BugFix
 
 # Exported Variables
 
@@ -20,37 +21,44 @@ class_name Loss extends Node
 
 # Private Variables
 var _LossConfig: Dictionary
+var _Logging: _LoggingModule
+var _AuthorizationModule: _LAuthorizationClass
+
 
 # Onready Variables
-onready var _LoggingSystem: _LoggingModule = _LoggingModule.new()
-onready var _AuthorizationClass: _LAuthorizationClass = _LAuthorizationClass.new()
-
 
 # _init()
-func _init(config: Dictionary) -> void:
-	_LossConfig = config
+# func _init() -> void:
+# 	return
 
 # _ready()
-func _ready() -> void:
-	# Core
-	add_child(_AuthorizationClass)
-
-	# Final configuration
-	_LoggingSystem.enableDevLogging(_LossConfig.enableDeveloperLogs)
-
+# func _ready() -> void:
+# 	return
 
 # _other()
 
 # Public Methods
+func initialize(config: Dictionary) -> void:
+	# Store a copy of the configuation file
+	_LossConfig = config
+
+	# Initialize the logger
+	_Logging = _LoggingModule.new()
+	_Logging.enableDevLogging(_LossConfig.enableDeveloperLogs)
+
+	# Logs
+	_Logging.log(["Initializing Godot LossSDK v%s" % [VERSION_STRING]])
+	_Logging.devLog(
+		["Current Configuration\nClientID: \"%s\"\nAuthorization Server URL: \"%s\"\nDatastore Server URL: \"%s\"\nEnable Developer Logs: \"%s\"" 
+		% [_LossConfig.clientID, _LossConfig.authorizationServerURL, _LossConfig.datastoreServerURL, _LossConfig.enableDeveloperLogs]])
+
+	# Initialize the subsystems
+	_AuthorizationModule = _LAuthorizationClass.new(_LossConfig)
+
+	# Add subsystems to tree
+	add_child(_AuthorizationModule)
+
 func registerClient() -> void:
-	var resultRaw = yield(_AuthorizationClass.register(_LossConfig.authorizationServerURL, _LossConfig.clientID), "completed")
-	var result: Dictionary = {
-		"result": int(resultRaw[0]),
-		"responseCode": int(resultRaw[1])
-	}
-	var responseCode: int = 
-	var responseHeaders: PoolStringArray = PoolStringArray(resultRaw[2])
-	var responseBody: Dictionary = parse_json(PoolByteArray(resultRaw[3]).get_string_from_utf8())
-	print(result, responseCode, responseHeaders, responseBody)
+	var resultRaw = yield(_AuthorizationModule.register(_LossConfig.authorizationServerURL, _LossConfig.clientID), "completed")
 
 # Private Methods
