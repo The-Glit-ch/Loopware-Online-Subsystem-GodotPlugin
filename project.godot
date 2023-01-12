@@ -9,11 +9,6 @@
 config_version=4
 
 _global_script_classes=[ {
-"base": "Node",
-"class": "Loss",
-"language": "GDScript",
-"path": "res://addons/loss-plugin/loss.gd"
-}, {
 "base": "HTTPRequest",
 "class": "_LAuthorizationClass",
 "language": "GDScript",
@@ -25,7 +20,6 @@ _global_script_classes=[ {
 "path": "res://addons/loss-plugin/_impl_shared/_logging_module.gd"
 } ]
 _global_script_class_icons={
-"Loss": "",
 "_LAuthorizationClass": "",
 "_LoggingModule": ""
 }
@@ -35,6 +29,10 @@ _global_script_class_icons={
 config/name="LOSS-GodotPlugin"
 run/main_scene="res://Example.tscn"
 config/icon="res://icon.png"
+
+[autoload]
+
+LossAPI="*res://addons/loss-plugin/loss.gd"
 
 [editor_plugins]
 
