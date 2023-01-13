@@ -20,9 +20,9 @@ const VERSION_STRING: String = "1.0.0" #Major.Minor.BugFix
 # Public Variables
 
 # Private Variables
-var _LossConfig: Dictionary
 var _Logging: _LoggingModule
 var _AuthorizationModule: _LAuthorizationClass
+var _lossConfig: Dictionary
 
 
 # Onready Variables
@@ -40,25 +40,25 @@ var _AuthorizationModule: _LAuthorizationClass
 # Public Methods
 func initialize(config: Dictionary) -> void:
 	# Store a copy of the configuation file
-	_LossConfig = config
+	_lossConfig = config
 
 	# Initialize the logger
 	_Logging = _LoggingModule.new()
-	_Logging.enableDevLogging(_LossConfig.enableDeveloperLogs)
+	_Logging.enableDevLogging(_lossConfig.enableDeveloperLogs)
 
 	# Logs
 	_Logging.log(["Initializing Godot LossSDK v%s" % [VERSION_STRING]])
 	_Logging.devLog(
-		["Current Configuration\nClientID: \"%s\"\nAuthorization Server URL: \"%s\"\nDatastore Server URL: \"%s\"\nEnable Developer Logs: \"%s\"" 
-		% [_LossConfig.clientID, _LossConfig.authorizationServerURL, _LossConfig.datastoreServerURL, _LossConfig.enableDeveloperLogs]])
+		["\n\n----[Start Current Configuration]----\nClientID: \"%s\"\nAuthorization Server URL: \"%s\"\nDatastore Server URL: \"%s\"\nEnable Developer Logs: \"%s\"\n----[End Current Configuration]----\n" 
+		% [_lossConfig.clientID, _lossConfig.authorizationServerURL, _lossConfig.datastoreServerURL, _lossConfig.enableDeveloperLogs]])
 
 	# Initialize the subsystems
-	_AuthorizationModule = _LAuthorizationClass.new(_LossConfig)
+	_AuthorizationModule = _LAuthorizationClass.new(_lossConfig)
 
 	# Add subsystems to tree
 	add_child(_AuthorizationModule)
 
 func registerClient() -> void:
-	var resultRaw = yield(_AuthorizationModule.register(_LossConfig.authorizationServerURL, _LossConfig.clientID), "completed")
+	yield(_AuthorizationModule.register(_lossConfig.authorizationServerURL, _lossConfig.clientID), "completed")
 
 # Private Methods

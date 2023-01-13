@@ -24,7 +24,7 @@ var _LossConfig: Dictionary  = {
 	"clientID": "ixjp/XpgawR+GzQopDDQIFWlnLS8Q/sbiiQju6Xw/vA0B2IwCti/6Fc3uL8qhxIPBg3Ohp0xQcSzbGAAg0BHBg==",
 	"authorizationServerURL": "http://127.0.0.1:8081",
 	"datastoreServerURL": "http://127.0.0.1:8080",
-	"enableDeveloperLogs": true
+	"enableDeveloperLogs": false
 }
 
 # Onready Variables
