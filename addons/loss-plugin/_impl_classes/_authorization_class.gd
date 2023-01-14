@@ -54,6 +54,10 @@ func _init(config: Dictionary) -> void:
 # _other()
 
 # Public Methods
+# /**
+# * Registers client with Authorization Server. Takes in the authorization server url
+# * and the client id. To be called via the LossAPI
+# */
 func register(authorizationServerURL: String, clientID: String) -> void:
 	# Make request
 	self.request("%s/auth/server/register" % [authorizationServerURL], ["Authorization: Bearer %s" % [clientID], "User-Agent: Godot-LossAPI"], true, HTTPClient.METHOD_POST) 
@@ -93,6 +97,10 @@ func register(authorizationServerURL: String, clientID: String) -> void:
 	_Logging.devLog(["\nClientID: %s\nAccessJWT: %s\nRefreshJWT: %s" % [clientID, _accessJWT, _refreshJWT]])
 	return
 
+# /**
+# * Refreshes the current access token. Can be called after
+# * register() method has been successful
+# */
 func refreshToken() -> void:
 	# Make request
 	self.request("%s/auth/server/refresh" % [_authorizationServerURL], ["Authorization: Bearer %s" % [_refreshJWT], "User-Agent: Godot-LossAPI"], true, HTTPClient.METHOD_POST)
@@ -128,5 +136,25 @@ func refreshToken() -> void:
 	_Logging.log(["Token refreshed"])
 	_Logging.devLog(["\nAccessJWT: %s\nRefreshJWT: %s" % [_accessJWT, _refreshJWT]])
 	return
+
+func secureRequest(requestMethod: int, requestURL: String, requestBody: Dictionary) -> Dictionary:
+	# Make request
+	self.request(requestURL, ["Authorization: Bearer %s" % [_accessJWT], "User-Agent: Godot-LossAPI", "Content-Type: application/json"], true, requestMethod, to_json(requestBody))
+
+	# Logs
+	_Logging.log(["Making secure request to server"])
+	_Logging.devLog(["Request URL: %s\nRequest Method: %s\nRqeust Body: %s" % [requestURL, requestMethod, requestBody]])
+
+	# Fetch and parse data
+	var rawRequest = yield(self, "request_completed")
+	var formatedData: Dictionary = {
+		"funcStatus": int(rawRequest[0]),
+		"resStatus": int(rawRequest[1]),
+		"resHeaders": PoolStringArray(rawRequest[2]),
+		"resData": parse_json(PoolByteArray(rawRequest[3]).get_string_from_utf8())
+	}
+
+	# Return data
+	return formatedData
 
 # Private Methods
