@@ -7,7 +7,7 @@ extends Node
 
 # Docstring
 # Loopware Online Subsystem @ Godot Plugin || Example file
-# Contains variouse examples on how to use the Loss API
+# Contains various examples on how to use the Loss API
 
 # Signals
 
@@ -27,27 +27,33 @@ var _LossConfig: Dictionary  = {
 	"enableDeveloperLogs": false
 }
 
-var newCollectionData: Dictionary = {
-	"cName": "Sleep",
-	"cData": {
-		"hello world": "goodbye word"
-	}
-}
-
 # Onready Variables
-
-# _init()
-# func _init() -> void:
-# 	pass
 
 # _ready()
 func _ready() -> void:
-	LossAPI.initialize(_LossConfig) # Initializes the LossAPI
+	# Initializes the LossAPI
+	LossAPI.initialize(_LossConfig) 
 	
-	yield(LossAPI.registerClient(), "completed") # Registers client/user with the authorization server
+	# Registers client/user with the authorization server
+	yield(LossAPI.registerClient(), "completed") 
 
-	yield(LossAPI.DatastoreModule.createCollection(newCollectionData), "completed") # Create a new collection with data
+	# Create a new collection
+	yield(LossAPI.DatastoreModule.createCollection("dev-testing", {"passed-with": "createCollection()"}), "completed")
 
+	# Write data to collection
+	yield(LossAPI.DatastoreModule.writeData("dev-testing", {"_loss-id": 1, "hello_world": "goodbye_world", "edited": false}), "completed")
+
+	# Fetch data
+	print("Data: ", yield(LossAPI.DatastoreModule.fetchData("dev-testing", {"_loss-id": 1}), "completed"))
+
+	# Update data
+	yield(LossAPI.DatastoreModule.updateData("dev-testing", {"_loss-id": 1}, {"edited": true}), "completed")
+
+	# Refetch data
+	print("Data: ", yield(LossAPI.DatastoreModule.fetchData("dev-testing", {"_loss-id": 1}), "completed"))
+
+	# Delete data
+	yield(LossAPI.DatastoreModule.deleteData("dev-testing", {"_loss-id": 1}), "completed")
 
 # _other()
 
