@@ -42,6 +42,9 @@ func _init(authorizationRefrence: _LAuthorizationClass, loggingModule: _LoggingM
 # _other()
 
 # Public Methods
+
+# <-- /datastore Endpoint --> #
+
 # /*
 # * Creates a new collection, data can also be optionally passed in to populate the new collection
 # * @param { String } collectionName - New name for the collection
@@ -194,5 +197,60 @@ func deleteData(collectionName: String, fetchQuery: Dictionary) -> void:
 	# Logs
 	_Logging.log(["Successfully deleted data in collection \"%s\"" % [payload.cName]])
 	return
+
+# /**
+# * Deletes/Drops a collection
+# * @param { String } collectionName - The collection to drop
+# * @returns { void }
+# */
+func deleteCollection(collectionName: String) -> void:
+	# Format data
+	var payload: Dictionary = {"cName": collectionName}
+
+	# Logs
+	_Logging.log(["Attempting to delete collection \"%s\"" % [payload.cName]])
+
+	# Send request
+	var responseData: _LResponseDataType = yield(_AuthorizationModule.secureRequest(HTTPClient.METHOD_DELETE, _lossConfig.datastoreServerURL + "/datastore/delete-collection", payload), "completed")
+
+	# Error handling
+	if responseData.functionStatus != OK:
+		_Logging.err(["Function error while deleting collection \"%s\" || Code: %s" % [payload.cName, responseData.functionStatus]])
+		return
+
+	if responseData.responseStatus != 200:
+		_Logging.err(["HTTP error while deleting collection \"%s\" || Code: %s | Message: %s" % [payload.cName, responseData.responseStatus, responseData.responseData.message]])
+		return
+	
+	# Logs
+	_Logging.log(["Successfully deleted collection \"%s\"" % [payload.cName]])
+	return
+
+# <-- /datastore Endpoint --> #
+
+# <-- /stream Endpoint --> #
+
+func assetStream(fileName: String) -> PoolByteArray:
+	# Format data
+	var payload: Dictionary = {"fileName": fileName}
+
+	# Logs
+	_Logging.log(["Attempting to download assets"])
+
+	# Send request
+	var responseData: _LResponseDataType = yield(_AuthorizationModule.secureRequest(HTTPClient.METHOD_GET, _lossConfig.datastoreServerURL + "/stream/download", payload, false), "completed")
+	
+	# Error handling
+	if responseData.functionStatus != OK:
+		_Logging.err(["Function error while streaming data \"%s\" || Code: %s" % [payload.fileName, responseData.functionStatus]])
+		return
+
+	if responseData.responseStatus != 200:
+		_Logging.err(["HTTP error while streaming data \"%s\" || Code: %s | Message: %s" % [payload.fileName, responseData.responseStatus, parse_json(responseData.responseData.get_string_from_utf8()).message]])
+		return
+	
+	# Logs
+	_Logging.log(["Successfully streamed data \"%s\"" % [payload.fileName]])
+	return responseData.responseData
 
 # Private Methods

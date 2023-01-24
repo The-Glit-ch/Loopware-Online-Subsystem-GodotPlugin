@@ -142,7 +142,7 @@ func refreshToken() -> void:
 # * @param { Dictionary } requestBody - The data to send to the server
 # * @returns { _LResponseDataType } - Returns a ResponseDataType with the response data
 # */
-func secureRequest(requestMethod: int, requestURL: String, requestBody: Dictionary) -> _LResponseDataType:
+func secureRequest(requestMethod: int, requestURL: String, requestBody: Dictionary, formatAsDictionary: bool = true) -> _LResponseDataType:
 	# Make request
 	self.request(requestURL, ["Authorization: Bearer %s" % [_accessJWT], _userAgent, "Content-Type: application/json"], true, requestMethod, to_json(requestBody))
 
@@ -151,9 +151,10 @@ func secureRequest(requestMethod: int, requestURL: String, requestBody: Dictiona
 	_Logging.devLog(["Request URL: %s\nRequest Method: %s\nRequest Body: %s" % [requestURL, requestMethod, requestBody]])
 
 	# Fetch and parse data
-	var responseData: _LResponseDataType = _LResponseDataType.new(yield(self, "request_completed"))
+	var responseData: _LResponseDataType = _LResponseDataType.new(yield(self, "request_completed"), formatAsDictionary)
 
 	# Return data
 	return responseData
+
 
 # Private Methods

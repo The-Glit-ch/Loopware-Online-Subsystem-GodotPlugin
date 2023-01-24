@@ -55,6 +55,15 @@ func _ready() -> void:
 	# Delete data
 	yield(LossAPI.DatastoreModule.deleteData("dev-testing", {"_loss-id": 1}), "completed")
 
+	# Delete collection
+	yield(LossAPI.DatastoreModule.deleteCollection("dev-testing"), "completed")
+
+	# Stream data
+	print("Streamed Data -> ", yield(LossAPI.DatastoreModule.assetStream("example.txt"), "completed").get_string_from_utf8())
+
+	# Stream invalid data
+	yield(LossAPI.DatastoreModule.assetStream("invalid.txt"), "completed")
+
 # _other()
 
 # Public Methods
