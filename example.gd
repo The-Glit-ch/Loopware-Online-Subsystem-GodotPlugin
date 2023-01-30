@@ -38,26 +38,26 @@ func _ready() -> void:
 	# Registers client/user with the authorization server
 	yield(LossAPI.registerClient(), "completed") 
 
-	# # Create a new collection
-	# yield(LossAPI.DatastoreModule.createCollection("dev-testing", {"passed-with": "createCollection()"}), "completed")
+	# Create a new collection
+	yield(LossAPI.DatastoreModule.DatastoreService.createCollection("dev-testing", {"passed-with": "createCollection()"}), "completed")
 
-	# # Write data to collection
-	# yield(LossAPI.DatastoreModule.writeData("dev-testing", {"_loss-id": 1, "hello_world": "goodbye_world", "edited": false}), "completed")
+	# Write data to collection
+	yield(LossAPI.DatastoreModule.DatastoreService.writeData("dev-testing", {"_loss-id": 1, "hello_world": "goodbye_world", "edited": false}), "completed")
 
-	# # Fetch data
-	# print("Data: ", yield(LossAPI.DatastoreModule.fetchData("dev-testing", {"_loss-id": 1}), "completed"))
+	# Fetch data
+	print("Data: ", yield(LossAPI.DatastoreModule.DatastoreService.fetchData("dev-testing", {"_loss-id": 1}), "completed"))
 
-	# # Update data
-	# yield(LossAPI.DatastoreModule.updateData("dev-testing", {"_loss-id": 1}, {"edited": true}), "completed")
+	# Update data
+	yield(LossAPI.DatastoreModule.DatastoreService.updateData("dev-testing", {"_loss-id": 1}, {"edited": true}), "completed")
 
-	# # Refetch data
-	# print("Data: ", yield(LossAPI.DatastoreModule.fetchData("dev-testing", {"_loss-id": 1}), "completed"))
+	# Refetch data
+	print("Data: ", yield(LossAPI.DatastoreModule.DatastoreService.fetchData("dev-testing", {"_loss-id": 1}), "completed"))
 
-	# # Delete data
-	# yield(LossAPI.DatastoreModule.deleteData("dev-testing", {"_loss-id": 1}), "completed")
+	# Delete data
+	yield(LossAPI.DatastoreModule.DatastoreService.deleteData("dev-testing", {"_loss-id": 1}), "completed")
 
-	# # Delete collection
-	# yield(LossAPI.DatastoreModule.deleteCollection("dev-testing"), "completed")
+	# Delete collection
+	yield(LossAPI.DatastoreModule.DatastoreService.deleteCollection("dev-testing"), "completed")
 
 	# # Stream data
 	# print("Streamed Data -> ", yield(LossAPI.DatastoreModule.assetStream("example.txt"), "completed").get_string_from_utf8())
