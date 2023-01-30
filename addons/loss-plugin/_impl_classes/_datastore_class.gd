@@ -8,7 +8,7 @@ extends Node
 
 # Docstring
 # Loopware Online Subsystem @ Godot Plugin || Datastore Module
-# Module class that contains methods specific to the datastore
+# Module class that contains modules specific to the datastore
 # service
 
 # Signals
@@ -230,6 +230,11 @@ func deleteCollection(collectionName: String) -> void:
 
 # <-- /stream Endpoint --> #
 
+# /**
+# * Streams data from the Datastore streaming service via the specified filename/filepath
+# * @param { String } fileName - The name of the file/filepath in which the data is located
+# * @returns { PoolByteArray } - Return data of the stream
+# */
 func assetStream(fileName: String) -> PoolByteArray:
 	# Format data
 	var payload: Dictionary = {"fileName": fileName}

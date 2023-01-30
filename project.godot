@@ -20,9 +20,24 @@ _global_script_classes=[ {
 "path": "res://addons/loss-plugin/_impl_classes/_datastore_class.gd"
 }, {
 "base": "Node",
+"class": "_LDatastoreService",
+"language": "GDScript",
+"path": "res://addons/loss-plugin/_impl_module_classes/_datastore_datastore_service_class.gd"
+}, {
+"base": "Node",
+"class": "_LNetLiveClass",
+"language": "GDScript",
+"path": "res://addons/loss-plugin/_impl_classes/_net_live_class.gd"
+}, {
+"base": "Node",
 "class": "_LResponseDataType",
 "language": "GDScript",
 "path": "res://addons/loss-plugin/_impl_types/_response_data.gd"
+}, {
+"base": "Node",
+"class": "_LUDPHolePunch",
+"language": "GDScript",
+"path": "res://addons/loss-plugin/_impl_module_classes/_net_live_udp_holepunch_class.gd"
 }, {
 "base": "File",
 "class": "_LoggingModule",
@@ -32,7 +47,10 @@ _global_script_classes=[ {
 _global_script_class_icons={
 "_LAuthorizationClass": "",
 "_LDatastoreClass": "",
+"_LDatastoreService": "",
+"_LNetLiveClass": "",
 "_LResponseDataType": "",
+"_LUDPHolePunch": "",
 "_LoggingModule": ""
 }
 

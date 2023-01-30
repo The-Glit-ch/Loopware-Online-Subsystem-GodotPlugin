@@ -48,7 +48,7 @@ func _init(config: Dictionary) -> void:
 	_accessTimeout.wait_time = 3300 #Token expires every 1hr so refresh it every 55 minutes || 3300
 	_accessTimeout.autostart = false
 	_accessTimeout.one_shot = true
-	_accessTimeout.name = "LossAPI-Coroutine"
+	_accessTimeout.name = "LossAPI-AuthCoroutine"
 	_accessTimeout.connect("timeout", self, "refreshToken")
 	add_child(_accessTimeout)
  
@@ -140,6 +140,7 @@ func refreshToken() -> void:
 # * @param { int } requestMethod - The request method that should be use. Refer to HTTPClient.METHOD_XXXXXX
 # * @param { String } requestURL - The url to use for the request
 # * @param { Dictionary } requestBody - The data to send to the server
+# * @param { bool } formatAsDictionary - Should the return data be a Dictionary or PoolByteArray. True by default || Currently only used by the DatastoreModule.assetStream() method
 # * @returns { _LResponseDataType } - Returns a ResponseDataType with the response data
 # */
 func secureRequest(requestMethod: int, requestURL: String, requestBody: Dictionary, formatAsDictionary: bool = true) -> _LResponseDataType:
