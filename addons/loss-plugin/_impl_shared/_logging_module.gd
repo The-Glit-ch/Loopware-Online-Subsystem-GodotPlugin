@@ -1,7 +1,10 @@
 # Tool
 
+# Class
+class_name _LoggingModule 
+
 # Class & Extends
-class_name _LoggingModule extends File
+extends File
 
 # Docstring
 # Loopware Online Subsystems @ Godot Plugin || Logging Module

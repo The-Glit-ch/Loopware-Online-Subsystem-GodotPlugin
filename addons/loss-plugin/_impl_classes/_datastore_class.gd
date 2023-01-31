@@ -20,6 +20,7 @@ extends Node
 
 # Public Variables
 var DatastoreService: _LDatastoreServiceModule
+var Streaming: _LDatastoreStreamingModule
 
 # Private Variables
 var _AuthorizationModule: _LAuthorizationClass
@@ -37,7 +38,9 @@ func _init(authorizationRefrence: _LAuthorizationClass, loggingModule: _LoggingM
 
 	# Initiate subsystems
 	DatastoreService = _LDatastoreServiceModule.new(_AuthorizationModule, _Logging, _lossConfig)
+	Streaming = _LDatastoreStreamingModule.new(_AuthorizationModule, _Logging, _lossConfig)
 	add_child(DatastoreService)
+	add_child(Streaming)
 
 
 # _ready()
@@ -47,35 +50,5 @@ func _init(authorizationRefrence: _LAuthorizationClass, loggingModule: _LoggingM
 # _other()
 
 # Public Methods
-
-# <-- /stream Endpoint --> #
-
-# /**
-# * Streams data from the Datastore streaming service via the specified filename/filepath
-# * @param { String } fileName - The name of the file/filepath in which the data is located
-# * @returns { PoolByteArray } - Return data of the stream
-# */
-func assetStream(fileName: String) -> PoolByteArray:
-	# Format data
-	var payload: Dictionary = {"fileName": fileName}
-
-	# Logs
-	_Logging.log(["Attempting to download assets"])
-
-	# Send request
-	var responseData: _LResponseDataType = yield(_AuthorizationModule.secureRequest(HTTPClient.METHOD_GET, _lossConfig.datastoreServerURL + "/stream/download", payload, false), "completed")
-	
-	# Error handling
-	if responseData.functionStatus != OK:
-		_Logging.err(["Function error while streaming data \"%s\" || Code: %s" % [payload.fileName, responseData.functionStatus]])
-		return
-
-	if responseData.responseStatus != 200:
-		_Logging.err(["HTTP error while streaming data \"%s\" || Code: %s | Message: %s" % [payload.fileName, responseData.responseStatus, parse_json(responseData.responseData.get_string_from_utf8()).message]])
-		return
-	
-	# Logs
-	_Logging.log(["Successfully streamed data \"%s\"" % [payload.fileName]])
-	return responseData.responseData
 
 # Private Methods

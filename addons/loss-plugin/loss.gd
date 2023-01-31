@@ -1,7 +1,3 @@
-# Confuscion 2.0
-# --A funny person
-
-
 # Tool
 
 # Class & Extends
@@ -17,19 +13,18 @@ extends Node
 # Enums
 
 # Constants
-const VERSION_STRING: String = "1.0.0" #Major.Minor.BugFix
+const VERSION_STRING: String = "DEV/PRE-v1.0.0" #Major.Minor.BugFix
 
 # Exported Variables
 
 # Public Variables
+var AuthorizationModule: _LAuthorizationClass
 var DatastoreModule: _LDatastoreClass
 var NetLiveModule: _LNetLiveClass
 
 # Private Variables
 var _Logging: _LoggingModule
-var _AuthorizationModule: _LAuthorizationClass
 var _lossConfig: Dictionary
-
 
 # Onready Variables
 
@@ -44,34 +39,34 @@ var _lossConfig: Dictionary
 # _other()
 
 # Public Methods
-func initialize(config: Dictionary) -> void:
-	# Store a copy of the configuation file
-	_lossConfig = config
+func initialize(lossConfig: Dictionary) -> void:
+	# Store configuration file
+	_lossConfig = lossConfig
 
 	# Initialize the logger
 	_Logging = _LoggingModule.new()
 	_Logging.enableDevLogging(_lossConfig.enableDeveloperLogs)
 
 	# Logs
-	_Logging.log(["Initializing Godot LossSDK v%s" % [VERSION_STRING]])
+	_Logging.log(["Initializing Godot LossSDK %s" % [VERSION_STRING]])
 	_Logging.devLog(
 		["\n\n----[Start Current Configuration]----\nClientID: \"%s\"\nAuthorization Server URL: \"%s\"\nDatastore Server URL: \"%s\"\nEnable Developer Logs: \"%s\"\n----[End Current Configuration]----\n" 
 		% [_lossConfig.clientID, _lossConfig.authorizationServerURL, _lossConfig.datastoreServerURL, _lossConfig.enableDeveloperLogs]])
 
-	# Initialize the subsystems
-	_AuthorizationModule = _LAuthorizationClass.new(_lossConfig)
-	DatastoreModule = _LDatastoreClass.new(_AuthorizationModule, _Logging, _lossConfig)
-	NetLiveModule = _LNetLiveClass.new(_AuthorizationModule, _Logging, _lossConfig)
+	# Initialize sub modules
+	AuthorizationModule = _LAuthorizationClass.new(_Logging, _lossConfig)
+	DatastoreModule = _LDatastoreClass.new(AuthorizationModule, _Logging, _lossConfig)
+	NetLiveModule = _LNetLiveClass.new(AuthorizationModule, _Logging, _lossConfig)
 
 	# Add subsystems to tree
-	add_child(_AuthorizationModule)
+	add_child(AuthorizationModule)
 	add_child(DatastoreModule)
 	add_child(NetLiveModule)
 
 func registerClient() -> void:
-	yield(_AuthorizationModule.register(_lossConfig.authorizationServerURL, _lossConfig.clientID), "completed")
+	yield(AuthorizationModule.register(), "completed")
 
 func refreshToken() -> void:
-	yield(_AuthorizationModule.refreshToken(), "completed")
+	yield(AuthorizationModule.refreshToken(), "completed")
 
 # Private Methods

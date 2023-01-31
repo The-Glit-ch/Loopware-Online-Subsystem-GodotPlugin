@@ -21,27 +21,20 @@ extends HTTPRequest
 # Public Variables
 
 # Private Variables
+# Ref
 var _Logging: _LoggingModule
-#
 var _lossConfig: Dictionary
+# Self
+var _tokens: Dictionary = {}
 var _accessTimeout: Timer
-#
-var _authorizationServerURL: String
-var _userAgent: String = "User-Agent: Godot-LossAPI"
-#
-var _accessJWT: String
-var _refreshJWT: String
 
 # Onready Variables
 
 # _init()
-func _init(config: Dictionary) -> void:
+func _init(loggingModule: _LoggingModule, lossConfig: Dictionary) -> void:
 	# Store a copy of the configuation file
-	_lossConfig = config
-
-	# Initialize the logger
-	_Logging = _LoggingModule.new()
-	_Logging.enableDevLogging(_lossConfig.enableDeveloperLogs)
+	_Logging = loggingModule
+	_lossConfig = lossConfig
 
 	# Courutine
 	_accessTimeout = Timer.new()
@@ -64,16 +57,13 @@ func _init(config: Dictionary) -> void:
 # * @param { String } clientID - The client ID to register
 # * @returns { void }
 # */
-func register(authorizationServerURL: String, clientID: String) -> void:
+func register() -> void:
 	# Make request
-	self.request("%s/auth/server/register" % [authorizationServerURL], ["Authorization: Bearer %s" % [clientID], _userAgent], true, HTTPClient.METHOD_POST) 
-	
-	# Save parameter data
-	_authorizationServerURL = authorizationServerURL
+	self.request("%s/auth/server/register" % [_lossConfig.authorizationServerURL], ["Authorization: Bearer %s" % [_lossConfig.clientID]], true, HTTPClient.METHOD_POST) 
 
 	# Logs
 	_Logging.log(["Registering client"])
-	_Logging.devLog(["Server URL: %s || Client ID: %s" % [authorizationServerURL, clientID]])
+	_Logging.devLog(["Server URL: %s || Client ID: %s" % ["%s/auth/server/register" % [_lossConfig.authorizationServerURL], _lossConfig.clientID]])
 	
 	# Fetch and parse data
 	var responseData: _LResponseDataType = _LResponseDataType.new(yield(self, "request_completed"))
@@ -88,15 +78,15 @@ func register(authorizationServerURL: String, clientID: String) -> void:
 		return
 	
 	# Save token
-	_accessJWT = responseData.responseData.message.access_token
-	_refreshJWT = responseData.responseData.message.refresh_token
+	_tokens["accessJWT"] = responseData.responseData.message.access_token
+	_tokens["refreshJWT"] = responseData.responseData.message.refresh_token
 
 	# Start courutine
 	_accessTimeout.start()
 
 	# Logs
 	_Logging.log(["Client succesfully registered"])
-	_Logging.devLog(["\nClientID: %s\nAccessJWT: %s\nRefreshJWT: %s" % [clientID, _accessJWT, _refreshJWT]])
+	_Logging.devLog(["\nClientID: %s\nAccessJWT: %s\nRefreshJWT: %s" % [_lossConfig.clientID, _tokens["accessJWT"], _tokens["refreshJWT"]]])
 	return
 
 # /**
@@ -105,11 +95,11 @@ func register(authorizationServerURL: String, clientID: String) -> void:
 # */
 func refreshToken() -> void:
 	# Make request
-	self.request("%s/auth/server/refresh" % [_authorizationServerURL], ["Authorization: Bearer %s" % [_refreshJWT], _userAgent], true, HTTPClient.METHOD_POST)
+	self.request("%s/auth/server/refresh" % [_lossConfig.authorizationServerURL], ["Authorization: Bearer %s" % [_tokens["refreshJWT"]]], true, HTTPClient.METHOD_POST)
 
 	# Logs
 	_Logging.log(["Refreshing token"])
-	_Logging.devLog(["Server URL: %s || Refresh JWT: %s" % [_authorizationServerURL, _refreshJWT]])
+	_Logging.devLog(["Server URL: %s || Refresh JWT: %s" % ["%s/auth/server/refresh" % [_lossConfig.authorizationServerURL], _tokens["refreshJWT"]]])
 
 	# Fetch and parse data
 	var responseData: _LResponseDataType = _LResponseDataType.new(yield(self, "request_completed"))
@@ -124,14 +114,14 @@ func refreshToken() -> void:
 		return
 	
 	# Save new token
-	_accessJWT = responseData.responseData.message.access_token
+	_tokens["accessJWT"] = responseData.responseData.message.access_token
 
 	# Reset courutine
 	_accessTimeout.start()
 
 	# Logs
 	_Logging.log(["Token refreshed"])
-	_Logging.devLog(["\nAccessJWT: %s\nRefreshJWT: %s" % [_accessJWT, _refreshJWT]])
+	_Logging.devLog(["\nAccessJWT: %s\nRefreshJWT: %s" % [_tokens["accessJWT"], _tokens["refreshJWT"]]])
 	return
 
 
@@ -145,7 +135,7 @@ func refreshToken() -> void:
 # */
 func secureRequest(requestMethod: int, requestURL: String, requestBody: Dictionary, formatAsDictionary: bool = true) -> _LResponseDataType:
 	# Make request
-	self.request(requestURL, ["Authorization: Bearer %s" % [_accessJWT], _userAgent, "Content-Type: application/json"], true, requestMethod, to_json(requestBody))
+	self.request(requestURL, ["Authorization: Bearer %s" % [_tokens["accessJWT"]], "Content-Type: application/json"], true, requestMethod, to_json(requestBody))
 
 	# Logs
 	_Logging.log(["Making secure request to server"])

@@ -102,6 +102,7 @@ func writeData(collectionName: String, data: Dictionary) -> void:
 
 func writeDataBulk() -> void:
 	_Logging.log(["writeDataBulk() is TBI, please fallback to writeData()"])
+	return
 
 # /**
 # * Fetches data in a collection via the specified fetch query
@@ -164,6 +165,7 @@ func updateData(collectionName: String, fetchQuery: Dictionary, newData: Diction
 
 func updateDataBulk() -> void:
 	_Logging.log(["updateDataBulk() is TBI, please fallback to updateData()"])
+	return
 
 # /**
 # * Deletes data in a collection via the specified fetch query
@@ -221,8 +223,5 @@ func deleteCollection(collectionName: String) -> void:
 	# Logs
 	_Logging.log(["Successfully deleted collection \"%s\"" % [payload.cName]])
 	return
-
-
-
 
 # Private Methods

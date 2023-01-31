@@ -25,6 +25,11 @@ _global_script_classes=[ {
 "path": "res://addons/loss-plugin/_impl_module_classes/_datastore_datastore_service_class.gd"
 }, {
 "base": "Node",
+"class": "_LDatastoreStreamingModule",
+"language": "GDScript",
+"path": "res://addons/loss-plugin/_impl_module_classes/_datastore_datastore_stream_class.gd"
+}, {
+"base": "Node",
 "class": "_LNetLiveClass",
 "language": "GDScript",
 "path": "res://addons/loss-plugin/_impl_classes/_net_live_class.gd"
@@ -48,6 +53,7 @@ _global_script_class_icons={
 "_LAuthorizationClass": "",
 "_LDatastoreClass": "",
 "_LDatastoreServiceModule": "",
+"_LDatastoreStreamingModule": "",
 "_LNetLiveClass": "",
 "_LResponseDataType": "",
 "_LUDPHolePunch": "",
