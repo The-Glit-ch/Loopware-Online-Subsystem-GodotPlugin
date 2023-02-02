@@ -71,7 +71,7 @@ func _ready() -> void:
 	# Create new UDP Punchthrough client
 	yield(LossAPI.NetLiveModule.UDPHolePunch.createNewClient(), "completed")
 
-	# Connect to host
+	# # Connect to host
 	# yield(LossAPI.NetLiveModule.UDPHolePunch.createNewClient(), "completed")
 
 # _other()

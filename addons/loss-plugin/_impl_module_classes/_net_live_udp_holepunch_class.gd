@@ -108,11 +108,18 @@ func createNewClient() -> void:
 
 	# Check for confirmation repsonse
 	var incomingPacket: Dictionary = _decode_packet(_UDPClientPeer.get_packet())
+	if incomingPacket.empty():
+		_Logging.log(["UDP connection failed. Is the server offline?"])
+		return yield(get_tree(), "idle_frame") # Avoid yield/async errors
+
 	if incomingPacket["message"] == "Connected":
 		_Logging.log(["UDP connection confirmed"])
 		return
 
-func createNewBind() -> void:
+func createNewSession() -> void:
+	pass
+
+func connectToSession() -> void:
 	pass
 
 # Private Methods
@@ -129,4 +136,5 @@ func _send_packet(udpSocket: PacketPeerUDP, data: Dictionary) -> int:
 	return udpSocket.put_packet(to_json(data).to_utf8())
 
 func _decode_packet(rawPacket: PoolByteArray) -> Dictionary:
+	if rawPacket.empty(): return {}
 	return parse_json(rawPacket.get_string_from_utf8())
