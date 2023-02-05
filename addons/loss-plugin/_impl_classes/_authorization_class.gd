@@ -55,9 +55,9 @@ func _init(loggingModule: _LoggingModule, lossConfig: Dictionary) -> void:
 # * Registers client with Authorization Server. Should be called via the LossAPI singleton and not through the AuthorizationClass
 # * @param { String } authorizationServerURL - The server URL for the authorization server
 # * @param { String } clientID - The client ID to register
-# * @returns { void }
+# * @returns { _LMethodReponseData } - Returns error messages and information
 # */
-func register() -> void:
+func register() -> _LMethodResponseData:
 	# Make request
 	self.request("%s/auth/server/register" % [_lossConfig.authorizationServerURL], ["Authorization: Bearer %s" % [_lossConfig.clientID]], true, HTTPClient.METHOD_POST) 
 
@@ -71,11 +71,11 @@ func register() -> void:
 	# Error handling
 	if responseData.functionStatus != OK:
 		_Logging.err(["Function error while registering client || Code: %s" % [responseData.functionStatus]])
-		return
+		return _LMethodResponseData.new({"errorMessage": "Function error", "errorCode": responseData.functionStatus})
 	
 	if responseData.responseStatus != 200:
 		_Logging.err(["HTTP error while registering client || Code: %s | Message: %s" % [responseData.responseStatus, responseData.responseData.message]])
-		return
+		return _LMethodResponseData.new({"errorMessage": "HTTP(S) error || %s" % [responseData.responseData.message], "errorCode": responseData.responseStatus})
 	
 	# Save token
 	_tokens["accessJWT"] = responseData.responseData.message.access_token
@@ -87,7 +87,7 @@ func register() -> void:
 	# Logs
 	_Logging.log(["Client succesfully registered"])
 	_Logging.devLog(["\nClientID: %s\nAccessJWT: %s\nRefreshJWT: %s" % [_lossConfig.clientID, _tokens["accessJWT"], _tokens["refreshJWT"]]])
-	return
+	return _LMethodResponseData.new({})
 
 # /**
 # * Refreshes the AccessJWT. Should be called via the LossAPI singleton and not through the AuthorizationClass
@@ -107,11 +107,11 @@ func refreshToken() -> void:
 	# Error handling
 	if responseData.functionStatus != OK:
 		_Logging.err(["Function error while refreshing token || Code: %s" % [responseData.functionStatus]])
-		return
+		return _LMethodResponseData.new({"errorMessage": "Function error", "errorCode": responseData.functionStatus})
 	
 	if responseData.responseStatus != 200:
 		_Logging.err(["HTTP error while refreshing token || Code: %s | Message: %s" % [responseData.responseStatus, responseData.responseData.message]])
-		return
+		return _LMethodResponseData.new({"errorMessage": "HTTP(S) error || %s" % [responseData.responseData.message], "errorCode": responseData.responseStatus})
 	
 	# Save new token
 	_tokens["accessJWT"] = responseData.responseData.message.access_token
@@ -122,7 +122,7 @@ func refreshToken() -> void:
 	# Logs
 	_Logging.log(["Token refreshed"])
 	_Logging.devLog(["\nAccessJWT: %s\nRefreshJWT: %s" % [_tokens["accessJWT"], _tokens["refreshJWT"]]])
-	return
+	return _LMethodResponseData.new({})
 
 
 # /**
@@ -149,3 +149,5 @@ func secureRequest(requestMethod: int, requestURL: String, requestBody: Dictiona
 
 
 # Private Methods
+func _returnAccessJWT() -> String:
+	return _tokens["accessJWT"]

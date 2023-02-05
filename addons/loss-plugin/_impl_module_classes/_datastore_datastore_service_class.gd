@@ -28,9 +28,9 @@ var _lossConfig: Dictionary
 # Onready Variables
 
 # _init()
-func _init(authorizationRefrence: _LAuthorizationClass, loggingModule: _LoggingModule, lossConfig: Dictionary) -> void:
+func _init(authorizationReference: _LAuthorizationClass, loggingModule: _LoggingModule, lossConfig: Dictionary) -> void:
 	# Save reference
-	_AuthorizationModule = authorizationRefrence
+	_AuthorizationModule = authorizationReference
 	_Logging = loggingModule
 	_lossConfig = lossConfig
 
@@ -46,9 +46,9 @@ func _init(authorizationRefrence: _LAuthorizationClass, loggingModule: _LoggingM
 # * Creates a new collection, data can also be optionally passed in to populate the new collection
 # * @param { String } collectionName - New name for the collection
 # * @param { Dictionary } collectionData ( Optional ) - Data to populate
-# * @returns { void }
+# * @returns { _LMethodReponseData } - Returns error messages and information
 # */
-func createCollection(collectionName: String, collectionData: Dictionary = {}) -> void:
+func createCollection(collectionName: String, collectionData: Dictionary = {}) -> _LMethodResponseData:
 	# Format data
 	var payload: Dictionary = {"cName": collectionName, "cData": collectionData} if collectionData.size() != 0 else {"cName": collectionName}
 
@@ -61,23 +61,23 @@ func createCollection(collectionName: String, collectionData: Dictionary = {}) -
 	# Error handling
 	if responseData.functionStatus != OK:
 		_Logging.err(["Function error while creating new collection || Code: %s" % [responseData.functionStatus]])
-		return
-
+		return _LMethodResponseData.new({"errorMessage": "Function error", "errorCode": responseData.functionStatus})
+	
 	if responseData.responseStatus != 200:
 		_Logging.err(["HTTP(S) error while creating new collection || Code: %s | Message: %s" % [responseData.responseStatus, responseData.responseData.message]])
-		return
+		return _LMethodResponseData.new({"errorMessage": "HTTP(S) error || %s" % [responseData.responseData.message], "errorCode": responseData.responseStatus})
 
 	# Logs
 	_Logging.log(["Successfuly created new collection \"%s\"" % [payload.cName]])
-	return
+	return _LMethodResponseData.new({})
 
 # /**
 # * Writes data to a specific collection
 # * @param { String } collectionName - Collection to write too
 # * @param { Dictionary } data - Data that should be written
-# * @returns { void }
+# * @returns { _LMethodReponseData } - Returns error messages and information
 # */
-func writeData(collectionName: String, data: Dictionary) -> void:
+func writeData(collectionName: String, data: Dictionary) -> _LMethodResponseData:
 	# Format data
 	var payload: Dictionary = {"cName": collectionName, "cData": data}
 
@@ -90,15 +90,15 @@ func writeData(collectionName: String, data: Dictionary) -> void:
 	# Error handling
 	if responseData.functionStatus != OK:
 		_Logging.err(["Function error while writing data in collection \"%s\" || Code: %s" % [payload.cName, responseData.functionStatus]])
-		return
+		return _LMethodResponseData.new({"errorMessage": "Function error", "errorCode": responseData.functionStatus})
 
 	if responseData.responseStatus != 200:
 		_Logging.err(["HTTP error while writing data in collection \"%s\" || Code: %s | Message: %s" % [payload.cName, responseData.responseStatus, responseData.responseData.message]])
-		return
+		return _LMethodResponseData.new({"errorMessage": "HTTP(S) error || %s" % [responseData.responseData.message], "errorCode": responseData.responseStatus})
 
 	# Logs
 	_Logging.log(["Successfuly wrote data to \"%s\"" % [payload.cName]])
-	return
+	return _LMethodResponseData.new({})
 
 func writeDataBulk() -> void:
 	_Logging.log(["writeDataBulk() is TBI, please fallback to writeData()"])
@@ -108,7 +108,7 @@ func writeDataBulk() -> void:
 # * Fetches data in a collection via the specified fetch query
 # * @param { String } collectionName - Collection to fetch from
 # * @param { Dictionary } fetchQuery - Fetch query
-# * @returns { Dictionary } - Return data from the fetch
+# * @returns { _LMethodReponseData } - Returns error messages and information
 # */
 func fetchData(collectionName: String, fetchQuery: Dictionary) -> Dictionary:
 	# Format data
@@ -123,22 +123,22 @@ func fetchData(collectionName: String, fetchQuery: Dictionary) -> Dictionary:
 	# Error handling
 	if responseData.functionStatus != OK:
 		_Logging.err(["Function error while fetching data from collection \"%s\" || Code: %s" % [payload.cName, responseData.functionStatus]])
-		return
+		return _LMethodResponseData.new({"errorMessage": "Function error", "errorCode": responseData.functionStatus})
 
 	if responseData.responseStatus != 200:
 		_Logging.err(["HTTP error while fetching data from collection \"%s\" || Code: %s | Message: %s" % [payload.cName, responseData.responseStatus, responseData.responseData.message]])
-		return
+		return _LMethodResponseData.new({"errorMessage": "HTTP(S) error || %s" % [responseData.responseData.message], "errorCode": responseData.responseStatus})
 	
 	# Logs
 	_Logging.log(["Successfully fetched data from collection \"%s\"" % [payload.cName]])
-	return responseData.responseData.data
+	return _LMethodResponseData.new({"returnData": responseData.responseData.data})
 
 # /**
 # * Updates data in a collection via the specified fetch query
 # * @param { String } collectionName - Collection the document is in
 # * @param { Dictionary } fetchQuery - The fetch query
 # * @param { Dictionary } newData - The new data to update/write
-# * @returns { void }
+# * @returns { _LMethodReponseData } - Returns error messages and information
 # */
 func updateData(collectionName: String, fetchQuery: Dictionary, newData: Dictionary) -> void:
 	# Format data
@@ -153,15 +153,15 @@ func updateData(collectionName: String, fetchQuery: Dictionary, newData: Diction
 	# Error handling
 	if responseData.functionStatus != OK:
 		_Logging.err(["Function error while updating data in collection \"%s\" || Code: %s" % [payload.cName, responseData.functionStatus]])
-		return
+		return _LMethodResponseData.new({"errorMessage": "Function error", "errorCode": responseData.functionStatus})
 
 	if responseData.responseStatus != 200:
 		_Logging.err(["HTTP error while updating data in collection \"%s\" || Code: %s | Message: %s" % [payload.cName, responseData.responseStatus, responseData.responseData.message]])
-		return
+		return _LMethodResponseData.new({"errorMessage": "HTTP(S) error || %s" % [responseData.responseData.message], "errorCode": responseData.responseStatus})
 	
 	# Logs
 	_Logging.log(["Successfully updated data in collection \"%s\"" % [payload.cName]])
-	return
+	return _LMethodResponseData.new({})
 
 func updateDataBulk() -> void:
 	_Logging.log(["updateDataBulk() is TBI, please fallback to updateData()"])
@@ -171,7 +171,7 @@ func updateDataBulk() -> void:
 # * Deletes data in a collection via the specified fetch query
 # * @param { String } collectionName - Collection the document is in
 # * @param { Dictionary } fetchQuery - The fetch query
-# * @returns { void }
+# * @returns { _LMethodReponseData } - Returns error messages and information
 # */
 func deleteData(collectionName: String, fetchQuery: Dictionary) -> void:
 	# Format data
@@ -186,20 +186,20 @@ func deleteData(collectionName: String, fetchQuery: Dictionary) -> void:
 	# Error handling
 	if responseData.functionStatus != OK:
 		_Logging.err(["Function error while deleting data in collection \"%s\" || Code: %s" % [payload.cName, responseData.functionStatus]])
-		return
+		return _LMethodResponseData.new({"errorMessage": "Function error", "errorCode": responseData.functionStatus})
 
 	if responseData.responseStatus != 200:
 		_Logging.err(["HTTP error while deleting data in collection \"%s\" || Code: %s | Message: %s" % [payload.cName, responseData.responseStatus, responseData.responseData.message]])
-		return
+		return _LMethodResponseData.new({"errorMessage": "HTTP(S) error || %s" % [responseData.responseData.message], "errorCode": responseData.responseStatus})
 
 	# Logs
 	_Logging.log(["Successfully deleted data in collection \"%s\"" % [payload.cName]])
-	return
+	return _LMethodResponseData.new({})
 
 # /**
 # * Deletes/Drops a collection
 # * @param { String } collectionName - The collection to drop
-# * @returns { void }
+# * @returns { _LMethodReponseData } - Returns error messages and information
 # */
 func deleteCollection(collectionName: String) -> void:
 	# Format data
@@ -214,14 +214,14 @@ func deleteCollection(collectionName: String) -> void:
 	# Error handling
 	if responseData.functionStatus != OK:
 		_Logging.err(["Function error while deleting collection \"%s\" || Code: %s" % [payload.cName, responseData.functionStatus]])
-		return
+		return _LMethodResponseData.new({"errorMessage": "Function error", "errorCode": responseData.functionStatus})
 
 	if responseData.responseStatus != 200:
 		_Logging.err(["HTTP error while deleting collection \"%s\" || Code: %s | Message: %s" % [payload.cName, responseData.responseStatus, responseData.responseData.message]])
-		return
+		return _LMethodResponseData.new({"errorMessage": "HTTP(S) error || %s" % [responseData.responseData.message], "errorCode": responseData.responseStatus})
 	
 	# Logs
 	_Logging.log(["Successfully deleted collection \"%s\"" % [payload.cName]])
-	return
+	return _LMethodResponseData.new({})
 
 # Private Methods

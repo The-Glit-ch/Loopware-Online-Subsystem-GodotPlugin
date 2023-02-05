@@ -35,44 +35,150 @@ func _ready() -> void:
 	# Initializes the LossAPI
 	LossAPI.initialize(_LossConfig) 
 	
-	# Registers client/user with the authorization server || Variant 1
-	yield(LossAPI.registerClient(), "completed") 
+	# For error handling examples
+	var methodStatusHandle
 
-	# # Registers client/user with the authorization server || Variant 2
-	# yield(LossAPI.AuthorizationModule.register(), "completed") 
+	# < --------------------------------------------------------------------------------------- > #
+
+	# Registers client/user with the authorization server || Variant 1
+	methodStatusHandle = yield(LossAPI.registerClient(), "completed")
+
+	# Check for errors
+	if methodStatusHandle.hasError():
+		# Print error data to console
+		print("Error Data: ", methodStatusHandle.getErrorDetails())
+		return
+
+	# < --------------------------------------------------------------------------------------- > #
 
 	# # Create a new collection
-	# yield(LossAPI.DatastoreModule.DatastoreService.createCollection("dev-testing", {"passed-with": "createCollection()"}), "completed")
+	# var createCollectionData: Dictionary = {"optionalData": "passed along while creating a collection"}
+	# methodStatusHandle = yield(LossAPI.DatastoreModule.DatastoreService.createCollection("dev-testing", createCollectionData), "completed")
+
+	# # Check for errors
+	# if methodStatusHandle.hasError():
+	# 	# Print error data to console
+	# 	print("Error Data: ", methodStatusHandle.getErrorDetails())
+	# 	return
+
+	# # < --------------------------------------------------------------------------------------- > #
 
 	# # Write data to collection
-	# yield(LossAPI.DatastoreModule.DatastoreService.writeData("dev-testing", {"_loss-id": 1, "hello_world": "goodbye_world", "edited": false}), "completed")
+	# var writeToCollectionData: Dictionary = {"_loss-id": 1, "this_is_a_key": "this_is_a_value", "edited": false}
+	# methodStatusHandle = yield(LossAPI.DatastoreModule.DatastoreService.writeData("dev-testing", writeToCollectionData), "completed")
 
+	# # Check for errors
+	# if methodStatusHandle.hasError():
+	# 	# Print error data to console
+	# 	print("Error Data: ", methodStatusHandle.getErrorDetails())
+	# 	return
+	
+	# # < --------------------------------------------------------------------------------------- > #
+	
 	# # Fetch data
-	# print("Data: ", yield(LossAPI.DatastoreModule.DatastoreService.fetchData("dev-testing", {"_loss-id": 1}), "completed"))
+	# var fetchDataQuery: Dictionary = {"_loss-id": 1}
+	# methodStatusHandle = yield(LossAPI.DatastoreModule.DatastoreService.fetchData("dev-testing", fetchDataQuery), "completed")
+
+	# # Check for errors
+	# if methodStatusHandle.hasError():
+	# 	# Print error data to console
+	# 	print("Error Data: ", methodStatusHandle.getErrorDetails())
+	# 	return
+
+	# # Print return data to console
+	# print("Fetched Data: ", methodStatusHandle.getReturnData())
+
+	# # < --------------------------------------------------------------------------------------- > #
 
 	# # Update data
-	# yield(LossAPI.DatastoreModule.DatastoreService.updateData("dev-testing", {"_loss-id": 1}, {"edited": true}), "completed")
+	# var updateDataQuery: Dictionary = {"_loss-id": 1}
+	# var updateData: Dictionary = {"edited": true}
+	# methodStatusHandle = yield(LossAPI.DatastoreModule.DatastoreService.updateData("dev-testing", updateDataQuery, updateData), "completed")
+
+	# # Check for errors
+	# if methodStatusHandle.hasError():
+	# 	# Print error data to console
+	# 	print("Error Data: ", methodStatusHandle.getErrorDetails())
+	# 	return
+	
+	# # < --------------------------------------------------------------------------------------- > #
 
 	# # Refetch data
-	# print("Data: ", yield(LossAPI.DatastoreModule.DatastoreService.fetchData("dev-testing", {"_loss-id": 1}), "completed"))
+	# var refetchDataQuery: Dictionary = {"_loss-id": 1}
+	# methodStatusHandle = yield(LossAPI.DatastoreModule.DatastoreService.fetchData("dev-testing", refetchDataQuery), "completed")
+
+	# # Check for errors
+	# if methodStatusHandle.hasError():
+	# 	# Print error data to console
+	# 	print("Error Data: ", methodStatusHandle.getErrorDetails())
+	# 	return
+
+	# # Print return data to console
+	# print("Re-Fetched Data: ", methodStatusHandle.getReturnData())
+
+	# # < --------------------------------------------------------------------------------------- > #
 
 	# # Delete data
-	# yield(LossAPI.DatastoreModule.DatastoreService.deleteData("dev-testing", {"_loss-id": 1}), "completed")
+	# var deleteDataQuery: Dictionary = {"_loss-id": 1}
+	# methodStatusHandle = yield(LossAPI.DatastoreModule.DatastoreService.deleteData("dev-testing", deleteDataQuery), "completed")
+
+	# # Check for errors
+	# if methodStatusHandle.hasError():
+	# 	# Print error data to console
+	# 	print("Error Data: ", methodStatusHandle.getErrorDetails())
+	# 	return
+
+	# # < --------------------------------------------------------------------------------------- > #
 
 	# # Delete collection
-	# yield(LossAPI.DatastoreModule.DatastoreService.deleteCollection("dev-testing"), "completed")
+	# methodStatusHandle = yield(LossAPI.DatastoreModule.DatastoreService.deleteCollection("dev-testing"), "completed")
+
+	# # Check for errors
+	# if methodStatusHandle.hasError():
+	# 	# Print error data to console
+	# 	print("Error Data: ", methodStatusHandle.getErrorDetails())
+	# 	return
+
+	# # < --------------------------------------------------------------------------------------- > #
 
 	# # Stream data
-	# print("Streamed Data -> ", yield(LossAPI.DatastoreModule.Streaming.assetStream("example.txt"), "completed").get_string_from_utf8())
+	# methodStatusHandle = yield(LossAPI.DatastoreModule.Streaming.assetStream("example.txt"), "completed")
 
-	# # Stream invalid data
-	# yield(LossAPI.DatastoreModule.Streaming.assetStream("invalid.txt"), "completed")
+	# # Check for errors
+	# if methodStatusHandle.hasError():
+	# 	# Print error data to console
+	# 	print("Error Data: ", methodStatusHandle.getErrorDetails())
+	# 	return
+	
+	# # Print streamed data to console
+	# print("Streamed Data -> ", methodStatusHandle.getReturnData().get_string_from_utf8())
+
+	# < --------------------------------------------------------------------------------------- > #
 
 	# Create new UDP Punchthrough client
-	yield(LossAPI.NetLiveModule.UDPHolePunch.createNewClient(), "completed")
+	methodStatusHandle = yield(LossAPI.NetLiveModule.UDPHolePunch.createNewClient(), "completed")
 
-	# # Connect to host
-	# yield(LossAPI.NetLiveModule.UDPHolePunch.createNewClient(), "completed")
+	# Check for errors
+	if methodStatusHandle.hasError():
+		# Print error data to console
+		print("Error Data: ", methodStatusHandle.getErrorDetails())
+		return
+	
+	# < --------------------------------------------------------------------------------------- > #
+
+	# Create a new session
+	methodStatusHandle = yield(LossAPI.NetLiveModule.UDPHolePunch.createNewSession(), "completed")
+
+	# Check for errors
+	if methodStatusHandle.hasError():
+		# Print error data to console
+		print("Error Data: ", methodStatusHandle.getErrorDetails())
+		return
+	
+	# Print out new session code
+	print("Join code ->", methodStatusHandle.getReturnData()["joinCode"])
+
+	# < --------------------------------------------------------------------------------------- > #
 
 # _other()
 

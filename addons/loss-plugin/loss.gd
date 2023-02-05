@@ -63,10 +63,10 @@ func initialize(lossConfig: Dictionary) -> void:
 	add_child(DatastoreModule)
 	add_child(NetLiveModule)
 
-func registerClient() -> void:
-	yield(AuthorizationModule.register(), "completed")
+func registerClient() -> _LMethodResponseData:
+	return yield(AuthorizationModule.register(), "completed")
 
-func refreshToken() -> void:
-	yield(AuthorizationModule.refreshToken(), "completed")
+func refreshToken() -> _LMethodResponseData:
+	return yield(AuthorizationModule.refreshToken(), "completed")
 
 # Private Methods

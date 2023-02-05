@@ -28,9 +28,9 @@ var _lossConfig: Dictionary
 # Onready Variables
 
 # _init()
-func _init(authorizationRefrence: _LAuthorizationClass, loggingModule: _LoggingModule, lossConfig: Dictionary) -> void:
+func _init(authorizationReference: _LAuthorizationClass, loggingModule: _LoggingModule, lossConfig: Dictionary) -> void:
 	# Save reference
-	_AuthorizationModule = authorizationRefrence
+	_AuthorizationModule = authorizationReference
 	_Logging = loggingModule
 	_lossConfig = lossConfig
 
@@ -44,9 +44,9 @@ func _init(authorizationRefrence: _LAuthorizationClass, loggingModule: _LoggingM
 # /**
 # * Streams data from the Datastore streaming service via the specified filename/filepath
 # * @param { String } fileName - The name of the file/filepath in which the data is located
-# * @returns { PoolByteArray } - Return data of the stream
+# * @returns { _LMethodReponseData } - Returns error messages and information
 # */
-func assetStream(fileName: String) -> PoolByteArray:
+func assetStream(fileName: String) -> _LMethodResponseData:
 	# Format data
 	var payload: Dictionary = {"fileName": fileName}
 
@@ -59,14 +59,14 @@ func assetStream(fileName: String) -> PoolByteArray:
 	# Error handling
 	if responseData.functionStatus != OK:
 		_Logging.err(["Function error while streaming data \"%s\" || Code: %s" % [payload.fileName, responseData.functionStatus]])
-		return
+		return _LMethodResponseData.new({"errorMessage": "Function error", "errorCode": responseData.functionStatus})
 
 	if responseData.responseStatus != 200:
 		_Logging.err(["HTTP error while streaming data \"%s\" || Code: %s | Message: %s" % [payload.fileName, responseData.responseStatus, parse_json(responseData.responseData.get_string_from_utf8()).message]])
-		return
+		return _LMethodResponseData.new({"errorMessage": "HTTP(S) error || %s" % [responseData.responseData.message], "errorCode": responseData.responseStatus})
 	
 	# Logs
 	_Logging.log(["Successfully streamed data \"%s\"" % [payload.fileName]])
-	return responseData.responseData
+	return _LMethodResponseData.new({"returnData": responseData.responseData})
 
 # Private Methods

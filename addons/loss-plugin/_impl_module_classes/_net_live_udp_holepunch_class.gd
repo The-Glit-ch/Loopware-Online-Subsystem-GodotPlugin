@@ -9,8 +9,10 @@ extends Node
 # Docstring
 # Loopware Online Subsystem @ Godot Plugin || Net/Live: UDPHolePunch Module
 # Contains methods and logic for UDP Hole Punching
+# TODO: Implement auto reconnect when we dont recieve a server heartbeat
 
 # Signals
+signal serverOffline
 
 # Enums
 
@@ -21,50 +23,70 @@ extends Node
 # Public Variables
 
 # Private Variables
-# Ref
+# References
 var _AuthorizationModule: _LAuthorizationClass
 var _Logging: _LoggingModule
 var _lossConfig: Dictionary
+
 # Self
+var _clientCommunicationPacketBacklog: Array
+var _serverCommunicationPacketBacklog: Array
 var _UDPClientPeer: PacketPeerUDP
 var _UDPServerAddress: Dictionary
-var _UDPTimeout: Timer
+var _UDPServerHeartbeat: Timer
+var _UDPResponseCodes: Dictionary = {
+	CONN_ACKNOWLEDGED="CONN_ACKNOWLEDGED",
+	CONN_NOT_REGISTERED="CONN_NOT_REGISTERED",
+	CONN_ESTABLISHED="CONN_ESTABLISHED",
+	CONN_ALR_ESTABLISHED="CONN_ALR_ESTABLISHED",
+	AUTH_ACCESS_TOKEN_INVALID="AUTH_ACCESS_TOKEN_INVALID",
+	AUTH_CLIENT_TOKEN_INVALID="AUTH_CLIENT_TOKEN_INVALID",
+	SERVER_HEARTBEAT="SERVER_HEARTBEAT"
+}
 
 # Onready Variables
 
 # _init()
-func _init(authorizationRefrence: _LAuthorizationClass, loggingModule: _LoggingModule, lossConfig: Dictionary) -> void:
+func _init(authorizationReference: _LAuthorizationClass, loggingModule: _LoggingModule, lossConfig: Dictionary) -> void:
 	# Save reference
-	_AuthorizationModule = authorizationRefrence
+	_AuthorizationModule = authorizationReference
 	_Logging = loggingModule
 	_lossConfig = lossConfig
 	
 	# Config
 	_UDPServerAddress = {"IP": _lossConfig.UDPPunchThroughServer[0], "PORT": _lossConfig.UDPPunchThroughServer[1]}
 
-	# UDP Timeout
-	_UDPTimeout = Timer.new()
-	_UDPTimeout.wait_time = 10.0
-	_UDPTimeout.autostart = false
-	_UDPTimeout.one_shot = true
-	_UDPTimeout.name = "LossAPU-UDPTimeout"
-	add_child(_UDPTimeout)
+	# Server heatbeat
+	_UDPServerHeartbeat = Timer.new()
+	_UDPServerHeartbeat.wait_time = 5
+	_UDPServerHeartbeat.autostart = false
+	_UDPServerHeartbeat.one_shot = true
+	_UDPServerHeartbeat.name = "LossAPI-ServerHeartbeat"
+	_UDPServerHeartbeat.connect("timeout", self, "_serverDisconnected")
+	add_child(_UDPServerHeartbeat)
+	
 
 # _ready()
 # func _ready() -> void:
 #     returns
 
 # _other()
+func _process(delta: float) -> void:
+	_poll_for_packets()
 
 # Public Methods
-func createNewClient() -> void:
+func createNewClient() -> _LMethodResponseData:
+	# I am at a *loss* of words ON WHY THIS HAS TO BE HERE
+	# PLEASE JUST ADD NORMAL ASYNC/AWAIT
+	yield(get_tree(), "idle_frame")
+
 	# Check if already connected to server
-	if _is_udp_connected(_UDPClientPeer):
-		_Logging.log(["Already connected to UDP server"])
-		return yield(get_tree(), "idle_frame")
+	if _is_udp_connection_valid():
+		_Logging.wrn(["Already connected to UDP \"TURN\" server"])
+		return _LMethodResponseData.new({"errorMessage": "UDP connection already established", "errorCode": _UDPResponseCodes.CONN_ALR_ESTABLISHED})
 
 	# Logs
-	_Logging.log(["Creating new UDP Punchthrough Client"])
+	_Logging.log(["Creating new UDP punchthrough client"])
 	_Logging.devLog(["Server IP: %s || Server Port: %s" % [_UDPServerAddress.IP, _UDPServerAddress.PORT]])
 
 	# Create a new UDP client and connect to remote
@@ -73,68 +95,180 @@ func createNewClient() -> void:
 
 	# Error handling
 	if remoteConnectionError:
-		_Logging.log(["Error while attempting to connect to UDP Punchthrough Server"])
-		_Logging.devLog(["Gonna be honest, got no clue how this can fail"])
-		return
+		_Logging.err(["Error while attempting to connect to UDP \"TURN\" server || Code: %s" % [remoteConnectionError]])
+		return _LMethodResponseData.new({"errorMessage": "Error while trying to connect to UDP \"TURN\" server", "errorCode": remoteConnectionError})
 
 	# Logs
-	_Logging.log(["Sending connection confirmation message"])
+	_Logging.log(["Sending registration request"])
 
-	# Send confirmation message to server
-	var data: Dictionary = {"connectionType": "Registration"}
-	var confirmationSendError: int = _send_packet(_UDPClientPeer, data)
+	# Send registration request to server
+	var registrationData: Dictionary = {"connectionType": "Registration", "authorization": _AuthorizationModule._returnAccessJWT()}
+	var registrationSendError: int = _send_packet(registrationData)
 
 	# Error handling
-	if confirmationSendError:
-		_Logging.log(["Error while sending connection confirmation message"])
-		return
+	if registrationSendError:
+		_Logging.err(["Error while sending registration message || Code: %s" % [registrationSendError]])
+		return _LMethodResponseData.new({"errorMessage": "Error while sending registration data", "errorCode": registrationSendError})
 
 	# Logs
 	_Logging.log(["Message sent || Awaiting confirmation"])
 
 	# Wait/Poll for confirmation response
-	_UDPTimeout.start()
-	var retries: int = 0
-	while _UDPClientPeer.get_available_packet_count() == 0:
-		if _UDPTimeout.time_left == 0:
-			_Logging.log(["UDP Confirmation Timeout. Is the server online?"])
-			_UDPClientPeer.close()
-			return
+	var secondsPassed: int = 0
+	while _serverCommunicationPacketBacklog.size() == 0:
+		if secondsPassed == 20:
+			_Logging.err(["UDP Connection Timeout || Is the server offline?"])
+			return _LMethodResponseData.new({"errorMessage": "UDP registration timeout"})
 		else:
 			yield(get_tree().create_timer(1), "timeout")
-			retries += 1
-			_send_packet(_UDPClientPeer, {"connectionType": "Registration"})
-			_Logging.log(["...(%s)" % [retries]])
+			_Logging.log(["Waiting...(%s seconds passed)" % [secondsPassed]])
+			secondsPassed += 1		
 
-	# Check for confirmation repsonse
-	var incomingPacket: Dictionary = _decode_packet(_UDPClientPeer.get_packet())
+	# Retrieve repsonse
+	var incomingPacket: Dictionary = _retrieve_packet_type("server")
+	
+	# Status handling
 	if incomingPacket.empty():
-		_Logging.log(["UDP connection failed. Is the server offline?"])
-		return yield(get_tree(), "idle_frame") # Avoid yield/async errors
+		_Logging.err(["UDP connection failed"])
+		return _LMethodResponseData.new({"errorMessage": "UDP connection failed"})
+	
+	if incomingPacket["code"] == _UDPResponseCodes.AUTH_ACCESS_TOKEN_INVALID:
+		_Logging.err(["Invalid access token || Please refresh your token"])
+		return _LMethodResponseData.new({"errorMessage": _UDPResponseCodes.AUTH_ACCESS_TOKEN_INVALID})
+	
+	if incomingPacket["code"] == _UDPResponseCodes.AUTH_CLIENT_TOKEN_INVALID:
+		_Logging.err(["Invalid client token || How?"])
+		return _LMethodResponseData.new({"errorMessage": _UDPResponseCodes.AUTH_ACCESS_TOKEN_INVALID})
+	
+	if incomingPacket["code"] == _UDPResponseCodes.CONN_ALR_ESTABLISHED:
+		_Logging.wrn(["You're already connected to the server || You shouldn't even be able to get this error"])
+		return _LMethodResponseData.new({"errorMessage": _UDPResponseCodes.CONN_ALR_ESTABLISHED})
+	
+	if incomingPacket["code"] == _UDPResponseCodes.CONN_ESTABLISHED:
+		_Logging.log(["Connection established"])
+		return _LMethodResponseData.new({})
+	
+	return _LMethodResponseData.new({})
 
-	if incomingPacket["message"] == "Connected":
-		_Logging.log(["UDP connection confirmed"])
-		return
+func createNewSession() -> _LMethodResponseData:
+	# Async/yield
+	yield(get_tree(), "idle_frame")
 
-func createNewSession() -> void:
-	pass
+	# Check if we are connected to the server
+	if !_is_udp_connection_valid():
+		_Logging.wrn(["Not connected to UDP \"TURN\" Server"])
+		return _LMethodResponseData.new({"errorMessage": "Not connected to server"})
+	
+	# Logs
+	_Logging.log(["Creating new UDP session"])
+	_Logging.devLog(["Server IP: %s || Server Port: %s" % [_UDPServerAddress.IP, _UDPServerAddress.PORT]])
 
-func connectToSession() -> void:
+	# Send createSession request
+	var createSessionData: Dictionary = {"connectionType": "CreateSession", "authorization": _AuthorizationModule._returnAccessJWT()}
+	var createSessionError: int = _send_packet(createSessionData)
+
+	# Error handling
+	if createSessionError:
+		_Logging.err(["Error while sending create session request || Code: %s" % createSessionError])
+		return _LMethodResponseData.new({"errorMessage": "Error while creating session", "errorCode": createSessionError})
+	
+	# Logs
+	_Logging.log(["Message sent || Awaiting confirmation"])
+
+	# Wait/Poll for confirmation response
+	var secondsPassed: int = 0
+	while _serverCommunicationPacketBacklog.size() == 0:
+		if secondsPassed == 20:
+			_Logging.err(["UDP Connection Timeout || Is the server offline?"])
+			return _LMethodResponseData.new({"errorMessage": "UDP connection timeout"})
+		else:
+			yield(get_tree().create_timer(1), "timeout")
+			_Logging.log(["Waiting...(%s seconds passed)" % [secondsPassed]])
+			secondsPassed += 1	
+	
+	# Retrieve repsonse
+	var incomingPacket: Dictionary = _retrieve_packet_type("server")
+
+	# Status handling
+	if incomingPacket.empty():
+		_Logging.err(["UDP connection failed"])
+		return _LMethodResponseData.new({"errorMessage": "UDP connection failed"})
+
+	if incomingPacket["code"] == _UDPResponseCodes.AUTH_ACCESS_TOKEN_INVALID:
+		_Logging.err(["Invalid access token || Please refresh your token"])
+		return _LMethodResponseData.new({"errorMessage": _UDPResponseCodes.AUTH_ACCESS_TOKEN_INVALID})
+
+	if incomingPacket["code"] == _UDPResponseCodes.AUTH_CLIENT_TOKEN_INVALID:
+		_Logging.err(["Invalid client token || How?"])
+		return _LMethodResponseData.new({"errorMessage": _UDPResponseCodes.AUTH_ACCESS_TOKEN_INVALID})
+
+	if incomingPacket["code"] == _UDPResponseCodes.CONN_NOT_REGISTERED:
+		_Logging.wrn(["Not registered with UDP server"])
+		return _LMethodResponseData.new({"errorMessage": _UDPResponseCodes.CONN_NOT_REGISTERED})
+
+	if incomingPacket["code"] == _UDPResponseCodes.CONN_ALR_ESTABLISHED:
+		_Logging.wrn(["You're already connected to the server || You shouldn't even be able to get this error"])
+		return _LMethodResponseData.new({"errorMessage": _UDPResponseCodes.CONN_ALR_ESTABLISHED})
+	
+	if incomingPacket["code"] == _UDPResponseCodes.CONN_ACKNOWLEDGED:
+		_Logging.log(["Successfully created a new session"])
+		return _LMethodResponseData.new({"returnData": {"joinCode": incomingPacket["data"]}})
+	
+	return _LMethodResponseData.new({})
+
+func joinSession() -> void:
 	pass
 
 # Private Methods
-func _is_udp_connected(udpSocket: PacketPeerUDP) -> bool:
-	if !is_instance_valid(udpSocket):
-		return false
-	
-	if !udpSocket.is_connected_to_host():
-		return false
-	
+func _is_udp_connection_valid() -> bool:
+	if !is_instance_valid(_UDPClientPeer) or !_UDPClientPeer.is_connected_to_host(): return false
 	return true
 
-func _send_packet(udpSocket: PacketPeerUDP, data: Dictionary) -> int:
-	return udpSocket.put_packet(to_json(data).to_utf8())
+func _send_packet(data: Dictionary) -> int:
+	return _UDPClientPeer.put_packet(to_json(data).to_utf8())
 
 func _decode_packet(rawPacket: PoolByteArray) -> Dictionary:
 	if rawPacket.empty(): return {}
 	return parse_json(rawPacket.get_string_from_utf8())
+
+func _retrieve_packet_type(packetType: String) -> Dictionary:
+	if packetType == "server":
+		var fetchedPacket: Dictionary = _serverCommunicationPacketBacklog[0]
+		_serverCommunicationPacketBacklog.remove(0)
+		_Logging.log(["Fetched server packet and removed it from backlog"])
+		return fetchedPacket
+	elif packetType == "client":
+		var fetchedPacket: Dictionary = _clientCommunicationPacketBacklog[0]
+		_serverCommunicationPacketBacklog.remove(0)
+		_Logging.log(["Fetched client packet and removed it from backlog"])
+		return fetchedPacket
+	
+	return {}
+
+func _poll_for_packets() -> void:
+	# Handles polling for packets
+	if _is_udp_connection_valid():
+		if _UDPClientPeer.get_available_packet_count() > 0:
+			# Logs
+			_Logging.log(["New packet recieved || Now decoding"])
+
+			# Decode packet and categorize it
+			var decodedPacket: Dictionary = _decode_packet(_UDPClientPeer.get_packet())
+			
+			# Server communication gets priority
+			if decodedPacket["type"] == "SERVER_COMM":
+				_serverCommunicationPacketBacklog.append(decodedPacket)
+				_Logging.log(["New server packet added"])
+				return
+			elif decodedPacket["type"] == "CLIENT_COMM":
+				_clientCommunicationPacketBacklog.append(decodedPacket)
+				_Logging.log(["New client packet added"])
+				return
+			elif decodedPacket["type"] == "SERVER_COMM_HEARTBEAT":
+				_send_packet({"connectionType": "ClientHeartbeat", "authorization": _AuthorizationModule._returnAccessJWT()})
+				_UDPServerHeartbeat.start()
+
+func _serverDisconnected() -> void:
+	_UDPClientPeer.close()
+	_Logging.log(["UDP \"TURN\" Server went offline"])
+	emit_signal("serverOffline")
