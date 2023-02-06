@@ -178,7 +178,17 @@ func _ready() -> void:
 	# Print out new session code
 	print("Join code ->", methodStatusHandle.getReturnData()["joinCode"])
 
-	# < --------------------------------------------------------------------------------------- > #
+	# # < --------------------------------------------------------------------------------------- > #
+
+	# methodStatusHandle = yield(LossAPI.NetLiveModule.UDPHolePunch.joinSession("a"), "completed")
+
+	# # Check for errors
+	# if methodStatusHandle.hasError():
+	# 	# Print error data to console
+	# 	print("Error Data: ", methodStatusHandle.getErrorDetails())
+	# 	return
+	
+	# # < --------------------------------------------------------------------------------------- > #
 
 # _other()
 
