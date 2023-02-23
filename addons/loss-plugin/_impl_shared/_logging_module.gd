@@ -23,7 +23,7 @@ extends File
 # Public Variables
 
 # Private Variables
-var _devLoggingEnabled: bool = false
+# var _devLoggingEnabled: bool = false
 var _logFileDirectory: String = "user://loss-logs"
 var _logFileDate: Dictionary = Time.get_datetime_dict_from_system()
 var _logFileName: String = "%s-%s-%s_%s.%s.%s.log" % [_logFileDate.month, _logFileDate.day, _logFileDate.year, _logFileDate.hour, _logFileDate.minute, _logFileDate.second]
@@ -41,8 +41,8 @@ func _init() -> void:
 # _other()
 
 # Public Methods
-func enableDevLogging(enable: bool) -> void:
-	_devLoggingEnabled = enable
+# func enableDevLogging(enable: bool) -> void:
+# 	_devLoggingEnabled = enable
 
 func log(message: Array) -> void:
 	var logDate: Dictionary = Time.get_datetime_dict_from_system()
@@ -71,41 +71,41 @@ func err(message: Array) -> void:
 	print(formattedMessage)
 	_writeLogToFile(formattedMessage)
 
-func devLog(message: Array) -> void:
-	if !_devLoggingEnabled:
-		return
+# func devLog(message: Array) -> void:
+# 	if !_devLoggingEnabled:
+# 		return
 	
-	var logDate: Dictionary = Time.get_datetime_dict_from_system()
-	var fullMessage: String = ""
-	for part in message:
-		fullMessage += "%s " % [String(part)]
-	var formattedMessage: String = "[dLOG @ %s/%s/%s-%s:%s:%s] %s" % [logDate.day, logDate.month, logDate.year, logDate.hour, logDate.minute, logDate.second, fullMessage]
-	print(formattedMessage)
-	_writeLogToFile(formattedMessage)
+# 	var logDate: Dictionary = Time.get_datetime_dict_from_system()
+# 	var fullMessage: String = ""
+# 	for part in message:
+# 		fullMessage += "%s " % [String(part)]
+# 	var formattedMessage: String = "[dLOG @ %s/%s/%s-%s:%s:%s] %s" % [logDate.day, logDate.month, logDate.year, logDate.hour, logDate.minute, logDate.second, fullMessage]
+# 	print(formattedMessage)
+# 	_writeLogToFile(formattedMessage)
 
-func devWrn(message: Array) -> void:
-	if !_devLoggingEnabled:
-		return
+# func devWrn(message: Array) -> void:
+# 	if !_devLoggingEnabled:
+# 		return
 	
-	var logDate: Dictionary = Time.get_datetime_dict_from_system()
-	var fullMessage: String = ""
-	for part in message:
-		fullMessage += "%s " % [String(part)]
-	var formattedMessage: String = "[dWRN @ %s/%s/%s-%s:%s:%s] %s" % [logDate.day, logDate.month, logDate.year, logDate.hour, logDate.minute, logDate.second, fullMessage]
-	print(formattedMessage)
-	_writeLogToFile(formattedMessage)
+# 	var logDate: Dictionary = Time.get_datetime_dict_from_system()
+# 	var fullMessage: String = ""
+# 	for part in message:
+# 		fullMessage += "%s " % [String(part)]
+# 	var formattedMessage: String = "[dWRN @ %s/%s/%s-%s:%s:%s] %s" % [logDate.day, logDate.month, logDate.year, logDate.hour, logDate.minute, logDate.second, fullMessage]
+# 	print(formattedMessage)
+# 	_writeLogToFile(formattedMessage)
 
-func devErr(message: Array) -> void:
-	if !_devLoggingEnabled:
-		return
+# func devErr(message: Array) -> void:
+# 	if !_devLoggingEnabled:
+# 		return
 	
-	var logDate: Dictionary = Time.get_datetime_dict_from_system()
-	var fullMessage: String = ""
-	for part in message:
-		fullMessage += "%s " % [String(part)]
-	var formattedMessage: String = "[dERR @ %s/%s/%s-%s:%s:%s] %s" % [logDate.day, logDate.month, logDate.year, logDate.hour, logDate.minute, logDate.second, fullMessage]
-	print(formattedMessage)
-	_writeLogToFile(formattedMessage)
+# 	var logDate: Dictionary = Time.get_datetime_dict_from_system()
+# 	var fullMessage: String = ""
+# 	for part in message:
+# 		fullMessage += "%s " % [String(part)]
+# 	var formattedMessage: String = "[dERR @ %s/%s/%s-%s:%s:%s] %s" % [logDate.day, logDate.month, logDate.year, logDate.hour, logDate.minute, logDate.second, fullMessage]
+# 	print(formattedMessage)
+# 	_writeLogToFile(formattedMessage)
 
 # Private Methods
 func _createLoggingDirectory() -> void:

@@ -19,6 +19,7 @@ const VERSION_STRING: String = "DEV/PRE-v1.0.0" #Major.Minor.BugFix
 
 # Public Variables
 var AuthorizationModule: _LAuthorizationClass
+var DatastoreModule: _LDatastoreClass
 
 # Private Variables
 var _LoggingModule: _LLoggingModule
@@ -43,15 +44,16 @@ func initialize(lossConfig: Dictionary) -> void:
 
 	# Initialize the logger
 	_LoggingModule = _LLoggingModule.new()
-	_LoggingModule.enableDevLogging(_lossConfiguration.enableDeveloperLogs)
 
 	# Startup
-	_LoggingModule.log(["Initializing Loss: Godot Plugin | %s" % [VERSION_STRING]])
+	_LoggingModule.log(["Initializing Loss Godot Plugin | %s" % [VERSION_STRING]])
 
-	# Initialize subsystem
+	# Initialize subsystems
 	AuthorizationModule = _LAuthorizationClass.new(_LoggingModule, _lossConfiguration)
+	DatastoreModule = _LDatastoreClass.new(_LoggingModule, _lossConfiguration, AuthorizationModule)
 
-	# Add to tree
+	# Add to scenee tree
 	add_child(AuthorizationModule)
+	add_child(DatastoreModule)
 
 # Private Methods
