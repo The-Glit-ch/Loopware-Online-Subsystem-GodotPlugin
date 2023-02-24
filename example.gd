@@ -24,6 +24,10 @@ var _lossConfig: Dictionary = {
 	"clientID": "/u4qVmfFPneidTXj2n47o+EeWBSAMP3zDA2COIIDtUcYF7iTmkCUFdLvldnokoJdR52W3yqkSGjqXutYZ7xZcA==",
 	"authorizationServerURL": "http://127.0.0.1:36210",
 	"datastoreServerURL": "http://127.0.0.1:36211",
+	"netUDPPunchthroughServer": {
+		"IP": "127.0.0.1",
+		"PORT": 36212
+	}
 }
 
 # Onready Variables
@@ -43,14 +47,14 @@ func _ready() -> void:
 		print("ERR: ", returnData.getErrorDetails())
 		return
 	
-	# Stream data
-	returnData = yield(LossAPI.DatastoreModule.StreamingService.streamData("folder/test.txt"), "completed")
+	# UDP
+	returnData = yield(LossAPI.NetModule.UDPPunchthroughService.createNewClient(), "completed")
 
 	if returnData.hasError():
 		print("ERR: ", returnData.getErrorDetails())
 		return
 	
-	print(returnData.getReturnData().get_string_from_utf8())
+	#print(returnData.getReturnData().get_string_from_utf8())
 
 	
 	

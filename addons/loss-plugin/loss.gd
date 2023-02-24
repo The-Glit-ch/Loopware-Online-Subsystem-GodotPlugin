@@ -20,6 +20,7 @@ const VERSION_STRING: String = "DEV/PRE-v1.0.0" #Major.Minor.BugFix
 # Public Variables
 var AuthorizationModule: _LAuthorizationClass
 var DatastoreModule: _LDatastoreClass
+var NetModule: _LNetClass
 
 # Private Variables
 var _LoggingModule: _LLoggingModule
@@ -51,9 +52,11 @@ func initialize(lossConfig: Dictionary) -> void:
 	# Initialize subsystems
 	AuthorizationModule = _LAuthorizationClass.new(_LoggingModule, _lossConfiguration)
 	DatastoreModule = _LDatastoreClass.new(_LoggingModule, _lossConfiguration, AuthorizationModule)
+	NetModule = _LNetClass.new(_LoggingModule, _lossConfiguration, AuthorizationModule)
 
 	# Add to scenee tree
 	add_child(AuthorizationModule)
 	add_child(DatastoreModule)
+	add_child(NetModule)
 
 # Private Methods

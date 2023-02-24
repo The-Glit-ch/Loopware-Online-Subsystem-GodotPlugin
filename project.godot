@@ -43,6 +43,16 @@ _global_script_classes=[ {
 "class": "_LMethodResponseData",
 "language": "GDScript",
 "path": "res://addons/loss-plugin/_impl_types/_method_response_data.gd.gd"
+}, {
+"base": "Node",
+"class": "_LNetClass",
+"language": "GDScript",
+"path": "res://addons/loss-plugin/_impl_classes/_net_class.gd.gd"
+}, {
+"base": "Node",
+"class": "_LNetUDPPunchthroughServiceModule",
+"language": "GDScript",
+"path": "res://addons/loss-plugin/_impl_submodules/_net/_net_udp_punchthrough_module.gd.gd"
 } ]
 _global_script_class_icons={
 "_LAuthorizationClass": "",
@@ -51,7 +61,9 @@ _global_script_class_icons={
 "_LDatastoreStreamingModule": "",
 "_LHTTPResponseData": "",
 "_LLoggingModule": "",
-"_LMethodResponseData": ""
+"_LMethodResponseData": "",
+"_LNetClass": "",
+"_LNetUDPPunchthroughServiceModule": ""
 }
 
 [application]

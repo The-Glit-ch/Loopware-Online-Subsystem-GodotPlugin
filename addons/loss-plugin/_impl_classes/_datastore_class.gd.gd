@@ -8,7 +8,7 @@ extends Node
 
 # Docstring
 # Loopware Online Subsystem Godot Plugin @ Datastore Class || Parent class that 
-# contain sub modules that relate to the Datastore Service
+# contain submodules that relate to the Datastore Service
 
 # Signals
 
