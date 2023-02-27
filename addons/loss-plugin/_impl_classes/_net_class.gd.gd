@@ -30,6 +30,9 @@ func _init(loggingModuleReference: _LLoggingModule, lossConfigurationReference: 
 	# Initiate submodules
 	UDPPunchthroughService = _LNetUDPPunchthroughServiceModule.new(loggingModuleReference, lossConfigurationReference, authorizationModuleReference)
 
+	# Add to scene tree
+	add_child(UDPPunchthroughService)
+
 
 # _ready()
 # func _ready() -> void:
