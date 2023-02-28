@@ -1,7 +1,7 @@
 # Tool
 
 # Class
-class_name _LNetUDPPunchthroughServiceModule
+class_name _LNetUDPPunchthroughServiceModuleOLD
 
 # Extends
 extends Node
@@ -35,13 +35,16 @@ var _serverIP: String
 var _serverPort: int
 var _responseCodes: Dictionary = {
 	CONN_ACKNOWLEDGED="CONN_ACKNOWLEDGED",
+	CONN_INVALID_BODY="CONN_INVALID_BODY",
 	CONN_ALREADY_REGISTERED="CONN_ALREADY_REGISTERED",
 	CONN_NOT_REGISTERED="CONN_NOT_REGISTERED",
 	CONN_ALREADY_HOSTING="CONN_ALREADY_HOSTING",
 	CONN_ALREADY_IN_SESSION="CONN_ALREADY_IN_SESSION",
+	CONN_SESSION_IS_FULL="CONN_SESSION_IS_FULL",
 	CONN_SESSION_NOT_FOUND="CONN_SESSION_NOT_FOUND",
-	AUTH_TOKENS_NOT_PROVIDED="AUTH_TOKENS_NOT_PROVIDED",
-	AUTH_INVALID_TOKEN="AUTH_INVALID_TOKEN",
+	AUTH_INVALID_TOKENS="AUTH_INVALID_TOKENS",
+	AUTH_ACCESS_TOKEN_NOT_PROVIDED="AUTH_ACCESS_TOKEN_NOT_PROVIDED",
+	AUTH_CLIENT_TOKEN_NOT_PROVIDED="AUTH_CLIENT_TOKEN_NOT_PROVIDED",
 	SERVER_INTERNAL_ERROR="SERVER_INTERNAL_ERROR",
 }
 
@@ -155,7 +158,7 @@ func createSession(maxPlayers: int = 10, sessionName: String = "") -> _LMethodRe
 	# Fix wierd async issues
 	yield(get_tree(), "idle_frame")
 
-	# Check if we are not registered
+	# Check if we are registered
 	if !_isConnected():
 		_loggingModuleRef.wrn(["Not registered | Register before using UDP Punchthrough service"])
 		return _LMethodResponseData.new({"errorMessage": "Not registered | Register before using UDP Punchthrough service"})
@@ -226,9 +229,9 @@ func createSession(maxPlayers: int = 10, sessionName: String = "") -> _LMethodRe
 			return _LMethodResponseData.new({"errorMessage": responseData.responseMessage, "errorCode": _responseCodes.SERVER_INTERNAL_ERROR})
 
 	# Log
-	_loggingModuleRef.log(["Server Response:", responseData.responseMessage])
+	_loggingModuleRef.log(["Server Response:", responseData.responseMessage.message])
 
-	return _LMethodResponseData.new({})
+	return _LMethodResponseData.new({"returnData": responseData.responseMessage.sessionCode})
 
 func findSessions() -> _LMethodResponseData:
 	# Fix wierd async issues
@@ -298,6 +301,93 @@ func findSessions() -> _LMethodResponseData:
 	_loggingModuleRef.log(["Server Response:", responseData.responseMessage.message])
 
 	return _LMethodResponseData.new({"returnData": responseData.responseMessage.foundSessions})
+
+func joinSession(sessionCode: String) -> _LMethodResponseData:
+	# Fix wierd async issues
+	yield(get_tree(), "idle_frame")
+
+	# Check if we are registered
+	if !_isConnected():
+		_loggingModuleRef.wrn(["Not registered | Register before using UDP Punchthrough service"])
+		return _LMethodResponseData.new({"errorMessage": "Not registered | Register before using UDP Punchthrough service"})
+	
+	# Format payload
+	var payload: Dictionary = {
+		"route": "joinSession",
+		"authorizationBearer": "%s:%s" % [_authModuleRef._tokens["accessToken"], _lossConfigRef.clientID],
+		"sessionCode": sessionCode,
+	}
+
+	# Log
+	_loggingModuleRef.log(["Attempting to join a session"])
+
+	# Send request
+	var sendError: int = _udpClient.put_packet(to_json(payload).to_utf8())
+
+	# Error handling
+	if sendError != OK:
+		_loggingModuleRef.err(["Error while sending packets to server"])
+		return _LMethodResponseData.new({"errorMessage": "Error while sending packets to server", "errorCode": sendError})
+	
+	# Log
+	_loggingModuleRef.log(["Request sent | Waiting for a response"])
+
+	# Wait for response
+	var secondsPassed: int = 0
+	while _serverPacketsBacklog.size() == 0:
+		if secondsPassed == 20:
+			_loggingModuleRef.err(["UDP connection timeout || Is the server offline?"])
+			return _LMethodResponseData.new({"errorMessage": "UDP connection timeout"})
+		else:
+			yield(get_tree().create_timer(1), "timeout")
+			_loggingModuleRef.log(["Waiting...(%s seconds passed)" % [secondsPassed]])
+			secondsPassed += 1
+
+	# Log
+	_loggingModuleRef.log(["Response recieved | Decoding"])
+
+	# Retrieve response
+	var responseData: Dictionary = _retrieve_packet("server")
+
+	# Error handling
+	if responseData.empty():
+		_loggingModuleRef.err(["Server connection failed"])
+		return _LMethodResponseData.new({"errorMessagee": "Server connection failed"})
+
+	match responseData.responseCode:
+		_responseCodes.CONN_ALREADY_HOSTING:
+			_loggingModuleRef.err(["Server Response: ", responseData.responseMessage])
+			return _LMethodResponseData.new({"errorMessage": responseData.responseMessage, "errorCode": _responseCodes.CONN_ALREADY_HOSTING})
+
+		_responseCodes.CONN_ALREADY_IN_SESSION:
+			_loggingModuleRef.err(["Server Response: ", responseData.responseMessage])
+			return _LMethodResponseData.new({"errorMessage": responseData.responseMessage, "errorCode": _responseCodes.CONN_ALREADY_IN_SESSION})
+
+		_responseCodes.CONN_SESSION_IS_FULL:
+			_loggingModuleRef.err(["Server Response: ", responseData.responseMessage])
+			return _LMethodResponseData.new({"errorMessage": responseData.responseMessage, "errorCode": _responseCodes.CONN_SESSION_IS_FULL})
+
+		_responseCodes.CONN_SESSION_NOT_FOUND:
+			_loggingModuleRef.err(["Server Response: ", responseData.responseMessage])
+			return _LMethodResponseData.new({"errorMessage": responseData.responseMessage, "errorCode": _responseCodes.CONN_SESSION_NOT_FOUND})
+
+		_responseCodes.AUTH_TOKENS_NOT_PROVIDED:
+			_loggingModuleRef.err(["Server Response: ", responseData.responseMessage])
+			return _LMethodResponseData.new({"errorMessage": responseData.responseMessage, "errorCode": _responseCodes.AUTH_TOKENS_NOT_PROVIDED})
+
+		_responseCodes.AUTH_INVALID_TOKEN:
+			_loggingModuleRef.err(["Server Response: ", responseData.responseMessage])
+			return _LMethodResponseData.new({"errorMessage": responseData.responseMessage, "errorCode": _responseCodes.AUTH_INVALID_TOKEN})
+		
+		_responseCodes.SERVER_INTERNAL_ERROR:
+			_loggingModuleRef.err(["Server Response: ", responseData.responseMessage])
+			return _LMethodResponseData.new({"errorMessage": responseData.responseMessage, "errorCode": _responseCodes.SERVER_INTERNAL_ERROR})
+
+	# Log
+	_loggingModuleRef.log(["Server Response:", responseData.responseMessage.message])
+
+	return _LMethodResponseData.new({"returnData": responseData.responseMessage.sessionCode})
+
 
 
 # Private Methods

@@ -47,20 +47,28 @@ func _ready() -> void:
 		print("ERR: ", returnData.getErrorDetails())
 		return
 
-	# UDP
+	
+	######################
 	returnData = yield(LossAPI.NetModule.UDPPunchthroughService.registerClient(), "completed")
 
 	if returnData.hasError():
 		print("ERR: ", returnData.getErrorDetails())
 		return
-
-
-	returnData = yield(LossAPI.NetModule.UDPPunchthroughService.createSession(10, "Hello from Loss!"), "completed")
+	######################
+	
+	
+	######################
+	returnData = yield(LossAPI.NetModule.UDPPunchthroughService.createSession(10), "completed")
 
 	if returnData.hasError():
 		print("ERR: ", returnData.getErrorDetails())
 		return
+	
+	print("Session Code: ", returnData.getReturnData())
+	######################
 
+
+	######################
 	returnData = yield(LossAPI.NetModule.UDPPunchthroughService.findSessions(), "completed")
 
 	if returnData.hasError():
@@ -68,7 +76,7 @@ func _ready() -> void:
 		return
 	
 	print("Found Sessions -> ", returnData.getReturnData())
-
+	######################
 	
 	
 
