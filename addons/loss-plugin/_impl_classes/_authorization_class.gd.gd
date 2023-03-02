@@ -28,6 +28,7 @@ var _lossConfigRef: Dictionary
 var _tokens: Dictionary = {}
 var _tokenTimeoutTimer: Timer
 var _tokenTimeoutSeconds: int = 3500
+var _crypto: Crypto = Crypto.new()
 
 # Onready Variables
 
@@ -218,6 +219,16 @@ func makeSecureRequest(requestURL: String, requestMethod: int, requestBody: Dict
 	# Return data
 	return _LMethodResponseData.new({"returnData": responseData})
 
-
-
 # Private Methods
+# /**
+# * Generates a JWT that can be used to securely transmit sensitive data
+# * @param { PoolByteArray } payload - The data to which encrypt
+# * @returns _LMethodResponseData
+# */
+# func _encryptWithJWT(payload: PoolByteArray) -> _LMethodResponseData:
+# 	# Check if we are registered
+# 	if !_tokens.has("refreshToken"):
+# 		return _LMethodResponseData.new({"errorMessage": "You must register before encrypting data"})
+
+# 	var jwt: PoolByteArray = _crypto.hmac_digest(HashingContext.HASH_SHA256, _tokens["accessToken"].to_utf8(), payload)
+# 	return _LMethodResponseData.new({"returnData": jwt})
