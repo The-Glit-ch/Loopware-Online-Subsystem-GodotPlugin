@@ -48,7 +48,7 @@ func _ready() -> void:
 		return
 	
 	######################
-	returnData = yield(LossAPI.NetModule.UDPPunchthroughService.registerClient(), "completed")
+	returnData = yield(LossAPI.DatastoreModule.DatastoreService.newCollection("helloWorld"), "completed")
 
 	if returnData.hasError():
 		print("ERR: ", returnData.getErrorDetails())
@@ -56,7 +56,8 @@ func _ready() -> void:
 	######################
 
 	######################
-	returnData = yield(LossAPI.NetModule.UDPPunchthroughService.joinSession("6cf458df073e803678767449"), "completed")
+	var writeData: Dictionary = {"_loss_id": 1, "isUpdated": false}
+	returnData = yield(LossAPI.DatastoreModule.DatastoreService.writeData("helloWorld", writeData), "completed")
 
 	if returnData.hasError():
 		print("ERR: ", returnData.getErrorDetails())
@@ -64,11 +65,31 @@ func _ready() -> void:
 	######################
 
 	######################
-	returnData = yield(LossAPI.NetModule.UDPPunchthroughService.destroySession(), "completed")
+	returnData = yield(LossAPI.DatastoreModule.DatastoreService.fetchData("helloWorld", {"_loss_id": 1}), "completed")
 
 	if returnData.hasError():
 		print("ERR: ", returnData.getErrorDetails())
 		return
+	
+	print("Fetched Data -> ", returnData.getReturnData())
+	######################
+
+	######################
+	returnData = yield(LossAPI.DatastoreModule.DatastoreService.updateData("helloWorld", {"_loss_id": 1}, {"isUpdated": true}), "completed")
+
+	if returnData.hasError():
+		print("ERR: ", returnData.getErrorDetails())
+		return
+	######################
+
+	######################
+	returnData = yield(LossAPI.DatastoreModule.DatastoreService.fetchData("helloWorld", {"_loss_id": 1}), "completed")
+
+	if returnData.hasError():
+		print("ERR: ", returnData.getErrorDetails())
+		return
+	
+	print("Fetched Data -> ", returnData.getReturnData())
 	######################
 	
 
