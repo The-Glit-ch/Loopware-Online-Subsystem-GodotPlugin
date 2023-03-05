@@ -1,6 +1,6 @@
 # Tool
 
-# Class & Extends
+# Extends
 extends Node
 
 # Docstring
@@ -13,17 +13,18 @@ extends Node
 # Enums
 
 # Constants
-const VERSION_STRING: String = "1.0.0" #Major.Minor.BugFix
+const VERSION_STRING: String = "DEV/PRE-v1.0.0" #Major.Minor.BugFix
 
 # Exported Variables
 
 # Public Variables
+var AuthorizationModule: _LAuthorizationClass
+var DatastoreModule: _LDatastoreClass
+var NetModule: _LNetClass
 
 # Private Variables
-var _LossConfig: Dictionary
-var _Logging: _LoggingModule
-var _AuthorizationModule: _LAuthorizationClass
-
+var _LoggingModule: _LLoggingModule
+var _lossConfiguration: Dictionary
 
 # Onready Variables
 
@@ -38,27 +39,24 @@ var _AuthorizationModule: _LAuthorizationClass
 # _other()
 
 # Public Methods
-func initialize(config: Dictionary) -> void:
-	# Store a copy of the configuation file
-	_LossConfig = config
+func initialize(lossConfig: Dictionary) -> void:
+	# Store configuration file
+	_lossConfiguration = lossConfig
 
 	# Initialize the logger
-	_Logging = _LoggingModule.new()
-	_Logging.enableDevLogging(_LossConfig.enableDeveloperLogs)
+	_LoggingModule = _LLoggingModule.new()
 
-	# Logs
-	_Logging.log(["Initializing Godot LossSDK v%s" % [VERSION_STRING]])
-	_Logging.devLog(
-		["Current Configuration\nClientID: \"%s\"\nAuthorization Server URL: \"%s\"\nDatastore Server URL: \"%s\"\nEnable Developer Logs: \"%s\"" 
-		% [_LossConfig.clientID, _LossConfig.authorizationServerURL, _LossConfig.datastoreServerURL, _LossConfig.enableDeveloperLogs]])
+	# Startup
+	_LoggingModule.log(["Initializing Loss Godot Plugin | %s" % [VERSION_STRING]])
 
-	# Initialize the subsystems
-	_AuthorizationModule = _LAuthorizationClass.new(_LossConfig)
+	# Initialize subsystems
+	AuthorizationModule = _LAuthorizationClass.new(_LoggingModule, _lossConfiguration)
+	DatastoreModule = _LDatastoreClass.new(_LoggingModule, _lossConfiguration, AuthorizationModule)
+	NetModule = _LNetClass.new(_LoggingModule, _lossConfiguration, AuthorizationModule)
 
-	# Add subsystems to tree
-	add_child(_AuthorizationModule)
-
-func registerClient() -> void:
-	var resultRaw = yield(_AuthorizationModule.register(_LossConfig.authorizationServerURL, _LossConfig.clientID), "completed")
+	# Add to scenee tree
+	add_child(AuthorizationModule)
+	add_child(DatastoreModule)
+	add_child(NetModule)
 
 # Private Methods
