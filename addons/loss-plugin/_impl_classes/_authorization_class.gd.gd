@@ -28,7 +28,6 @@ var _lossConfigRef: Dictionary
 var _tokens: Dictionary = {}
 var _tokenTimeoutTimer: Timer
 var _tokenTimeoutSeconds: int = 3500
-var _crypto: Crypto = Crypto.new()
 
 # Onready Variables
 
@@ -68,7 +67,7 @@ func registerClient() -> _LMethodResponseData:
 
 	# Format the payload
 	var authorizationURI: String = "%s/authorization/api/v1/register" % [_lossConfigRef.authorizationServerURL]
-	var payloadHeader: PoolStringArray = ["Authorization: Bearer %s" % [_lossConfigRef.clientID]]
+	var payloadHeader: PoolStringArray = ["Authorization: Bearer %s" % [_lossConfigRef.clientToken]]
 
 	# Log
 	_loggingModuleRef.log(["Attempting to register client"])
@@ -112,7 +111,7 @@ func refreshToken() -> _LMethodResponseData:
 
 	# Format the payload
 	var authorizationURI: String = "%s/authorization/api/v1/refresh" % [_lossConfigRef.authorizationServerURL]
-	var payloadHeader: PoolStringArray = ["Authorization: Bearer %s:%s" % [_tokens.refreshToken, _lossConfigRef.clientID]]
+	var payloadHeader: PoolStringArray = ["Authorization: Bearer %s:%s" % [_tokens.refreshToken, _lossConfigRef.clientToken]]
 
 	# Log
 	_loggingModuleRef.log(["Attempting to refresh access token"])
@@ -157,7 +156,7 @@ func logoutClient() -> _LMethodResponseData:
 
 	# Format the payload
 	var authorizationURI: String = "%s/authorization/api/v1/logout" % [_lossConfigRef.authorizationServerURL]
-	var payloadHeader: PoolStringArray = ["Authorization: Bearer %s:%s" % [_tokens.refreshToken, _lossConfigRef.clientID]]
+	var payloadHeader: PoolStringArray = ["Authorization: Bearer %s:%s" % [_tokens.refreshToken, _lossConfigRef.clientToken]]
 
 	# Log
 	_loggingModuleRef.log(["Attempting to logout Loss client"])
@@ -202,7 +201,7 @@ func makeSecureRequest(requestURL: String, requestMethod: int, requestBody: Dict
 		return _LMethodResponseData.new({"errorMessage": "You must register before making secured HTTP(S) requests"})
 	
 	# Format payload
-	var payloadHeader: PoolStringArray = ["Authorization: Bearer %s:%s" % [_tokens.accessToken, _lossConfigRef.clientID], "Content-Type: application/json"]
+	var payloadHeader: PoolStringArray = ["Authorization: Bearer %s:%s" % [_tokens.accessToken, _lossConfigRef.clientToken], "Content-Type: application/json"]
 
 	# Log
 	_loggingModuleRef.log(["Attempting to make a secure request to the server"])
@@ -225,10 +224,27 @@ func makeSecureRequest(requestURL: String, requestMethod: int, requestBody: Dict
 # * @param { PoolByteArray } payload - The data to which encrypt
 # * @returns _LMethodResponseData
 # */
-# func _encryptWithJWT(payload: PoolByteArray) -> _LMethodResponseData:
-# 	# Check if we are registered
-# 	if !_tokens.has("refreshToken"):
-# 		return _LMethodResponseData.new({"errorMessage": "You must register before encrypting data"})
+func _encryptWithJWT(payload: Dictionary, secret: String) -> String:
+	# Define the JWT
+	var crypto: Crypto = Crypto.new()
+	var jwtHeader: Dictionary = {alg="HS256", typ="JWT"}
+	var jwtPayload: Dictionary = payload
 
-# 	var jwt: PoolByteArray = _crypto.hmac_digest(HashingContext.HASH_SHA256, _tokens["accessToken"].to_utf8(), payload)
-# 	return _LMethodResponseData.new({"returnData": jwt})
+	# Encode the data
+	var encodedHeader: String = base64URLEncode(to_json(jwtHeader).to_utf8())
+	var encodedPayload: String = base64URLEncode(to_json(jwtPayload).to_utf8())
+
+	# Generate signature
+	var hmacSignature: PoolByteArray = crypto.hmac_digest(HashingContext.HASH_SHA256, secret.to_utf8(), (encodedHeader+"."+encodedPayload).to_utf8())
+	var encodedSignature: String = base64URLEncode(hmacSignature)
+
+	# Return JWT
+	return "%s.%s.%s" % [encodedHeader, encodedPayload, encodedSignature]
+
+# /**
+# * Base64 URL encode
+# * @param { PoolByteArray } text - Text to encode
+# * @returns { String } - Encoded string
+# */
+func base64URLEncode(text: PoolByteArray) -> String:
+	return Marshalls.raw_to_base64(text).replacen("+","-").replacen("/","_").replacen("=","")

@@ -7,15 +7,13 @@ class_name _LNetUDPPunchthroughServiceModule
 extends Node
 
 # Docstring
-# Loopware Online Subsystem Godot Plugin @ UDP Punchthrough Service Module || Provides an easy to use
-# Punchthrough client for making P2P multiplayer sessions | More info -> https://en.wikipedia.org/wiki/UDP_hole_punching
-# NOTE: Currently Access-Client token pairs are transported via clear text. This really isint good
 
 # Signals
-signal packet_recieved(packetData)
-signal peer_connected
-signal peer_disconnected
+signal packet_recieved(packet, peer_id)
+signal peer_connected(peer_id)
+signal peer_disconnected(peer_id)
 signal session_destroyed
+signal service_offline
 
 # Enums
 
@@ -31,26 +29,36 @@ var _loggingModuleRef: _LLoggingModule
 var _authModuleRef: _LAuthorizationClass
 var _lossConfigRef: Dictionary
 # Self
-var _serverPacketStorage: Array = []
+var _serverHeartbeatTimer: Timer
+var _serverPacketStorage: Array
 var _client: PacketPeerUDP
 var _serverIP: String
-var _serverPort: int
-var _sessionDetails: Dictionary = {isRegistered=false, isHosting=false, inSession=false, sessionCode=""}
+var _serverPORT: int
+var _serverEncryptionKey: String
+var _currentSessionDetails: Dictionary = {
+	isRegistered=false,
+	inSession=false,
+	isSessionHost=false,
+	currentSessionCode=""
+}
 var _responseCodes: Dictionary = {
 	CONN_ACKNOWLEDGED="CONN_ACKNOWLEDGED",
 	CONN_INVALID_BODY="CONN_INVALID_BODY",
-	CONN_ALREADY_REGISTERED="CONN_ALREADY_REGISTERED",
 	CONN_NOT_REGISTERED="CONN_NOT_REGISTERED",
-	CONN_ALREADY_HOSTING="CONN_ALREADY_HOSTING",
+	CONN_ALREADY_REGISTERED="CONN_ALREADY_REGISTERED",
+	CONN_ALREADY_HOSTING_SESSION="CONN_ALREADY_HOSTING_SESSION",
 	CONN_ALREADY_IN_SESSION="CONN_ALREADY_IN_SESSION",
-	CONN_SESSION_IS_FULL="CONN_SESSION_IS_FULL",
-	CONN_SESSION_NOT_FOUND="CONN_SESSION_NOT_FOUND",
 	SESSION_PEER_CONNECTED="SESSION_PEER_CONNECTED",
 	SESSION_PEER_DISCONNECTED="SESSION_PEER_DISCONNECTED",
-	SESSION_DESTROYED="SESSION_DESTROYED",
-	AUTH_INVALID_TOKENS="AUTH_INVALID_TOKENS",
+	SESSION_SESSION_DESTROYED="SESSION_SESSION_DESTROYED",
+	SESSION_REQUESTED_SESSION_NOT_FOUND="SESSION_REQUESTED_SESSION_NOT_FOUND",
+	SESSION_REQUESTED_SESSION_FULL="SESSION_REQUESTED_SESSION_FULL",
+	SESSION_SESSION_PASSWORD_INVALID="SESSION_SESSION_PASSWORD_INVALID",
+	AUTH_INVALID_ENCRYPT_KEY="AUTH_INVALID_ENCRYPT_KEY",
 	AUTH_ACCESS_TOKEN_NOT_PROVIDED="AUTH_ACCESS_TOKEN_NOT_PROVIDED",
 	AUTH_CLIENT_TOKEN_NOT_PROVIDED="AUTH_CLIENT_TOKEN_NOT_PROVIDED",
+	AUTH_INVALID_TOKENS="AUTH_INVALID_TOKENS",
+	SERVER_HEARTBEAT="SERVER_HEARTBEAT",
 	SERVER_INTERNAL_ERROR="SERVER_INTERNAL_ERROR",
 }
 
@@ -64,11 +72,21 @@ func _init(loggingModuleReference: _LLoggingModule, lossConfigurationReference: 
 	_lossConfigRef = lossConfigurationReference
 
 	# Set data
-	_serverIP = _lossConfigRef.netUDPPunchthroughServer.IP
-	_serverPort = _lossConfigRef.netUDPPunchthroughServer.PORT
+	_serverIP = _lossConfigRef.UDPPunchthrough.IP
+	_serverPORT = _lossConfigRef.UDPPunchthrough.PORT
+	_serverEncryptionKey = _lossConfigRef.UDPPunchthrough.ENCKEY
 
 	# Create a new UDP client
 	_client = PacketPeerUDP.new()
+
+	# Setup the heartbeat timer
+	_serverHeartbeatTimer = Timer.new()
+	_serverHeartbeatTimer.wait_time = 10
+	_serverHeartbeatTimer.autostart = false
+	_serverHeartbeatTimer.name = "LossAPI-UDPHeartbeat"
+	_serverHeartbeatTimer.connect("timeout", self, "_service_offline")
+	add_child(_serverHeartbeatTimer)
+
 
 # _ready()
 # func _ready() -> void:
@@ -83,34 +101,31 @@ func registerClient() -> _LMethodResponseData:
 	# Fix for weird yield issues
 	yield(get_tree(), "idle_frame")
 
-	# Check if we are registered
-	if _sessionDetails.isRegistered:
-		_loggingModuleRef.wrn(["Already registered with UDP Punchthrough service"])
+	# Check if we are already registered
+	if _currentSessionDetails.isRegistered:
+		_loggingModuleRef.wrn(["You are already registered"])
 		return _LMethodResponseData.new({"errorMessage": "Already registered", "errorCode": _responseCodes.CONN_ALREADY_REGISTERED})
 	
 	# Format payload
-	# # Attempt to encode authorization header
-	# var formatedHeader: PoolByteArray = ("%s:%s" % [_authModuleRef._tokens["accessToken"], _lossConfigRef.clientID]).to_utf8()
-	# var responseData: _LMethodResponseData = _authModuleRef._encryptWithJWT(formatedHeader)
-
-	# # Format payload
-	# if responseData.hasError():
-	# 	_loggingModuleRef.err(["Error while encrypting data | Code: %s | Message: %s" % [responseData.getErrorDetails()[1], responseData.getErrorDetails()[0]]])
-	# 	return _LMethodResponseData.new({"errorMessage": responseData.getErrorDetails()[1], "errorCode":responseData.getErrorDetails()[0]})
-	var payload: Dictionary = {
-		"requestedRoute": "registerClient",
-		"authorizationBearer": "%s:%s" % [_authModuleRef._tokens["accessToken"], _lossConfigRef.clientID],
+	var authorizationHeader: Dictionary = {
+		"accessToken": _authModuleRef._tokens["accessToken"],
+		"clientToken": _lossConfigRef.clientToken,
 	}
-	
+	var authorizationHeaderJWT: String = _authModuleRef._encryptWithJWT(authorizationHeader, _serverEncryptionKey)
+	var payload: Dictionary = {
+		"authorizationHeader": authorizationHeaderJWT,
+		"requestedRoute": "registerClient",
+	}
+
 	# Log
 	_loggingModuleRef.log(["Attempting to connect to server"])
 
 	# Connect to server
-	var serverConnectionError: int = _client.connect_to_host(_serverIP, _serverPort)
+	var serverConnectionError: int = _client.connect_to_host(_serverIP, _serverPORT)
 	if serverConnectionError != OK:
 		_loggingModuleRef.err(["Error while connecting to server"])
 		return _LMethodResponseData.new({"errorMessage": "Error while connecting to server", "errorCode": serverConnectionError})
-	
+
 	# Log
 	_loggingModuleRef.log(["Successfully connected to server | Attempting to send register client request"])
 
@@ -118,8 +133,8 @@ func registerClient() -> _LMethodResponseData:
 	var sendError: int = _client.put_packet(to_json(payload).to_utf8())
 	if sendError != OK:
 		_loggingModuleRef.err(["Error while sending packets to server"])
-		return _LMethodResponseData.new({"errorMessage": "Error while sending packets to server", "errorCode": sendError})
-	
+		return _LMethodResponseData.new({"errorMessage": "Error while sending packet to server", "errorCode": sendError})
+
 	# Log
 	_loggingModuleRef.log(["Request sent | Waiting for response"])
 
@@ -138,64 +153,54 @@ func registerClient() -> _LMethodResponseData:
 	_loggingModuleRef.log(["Response recieved | Decoding"])
 
 	# Retrieve response
-	var responseData: Dictionary = _retrieve_packet()
+	var responseData: Dictionary = _retrieve_packet()	
 
 	# Error handling
-	match responseData.responseCode:
-		_responseCodes.CONN_ALREADY_REGISTERED:
-			_loggingModuleRef.wrn(["Already registered with UDP Punchthrough service"])
-			return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": _responseCodes.CONN_ALREADY_REGISTERED})
+	if responseData.responseCode != _responseCodes.CONN_ACKNOWLEDGED:
+		_loggingModuleRef.err([responseData.responseData.message])
+		return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": responseData.responseCode})
 
-		_responseCodes.AUTH_INVALID_TOKENS:
-			_loggingModuleRef.err(["Invalid Access-Client token pair"])
-			return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": _responseCodes.AUTH_INVALID_TOKENS})
-
-		_responseCodes.AUTH_ACCESS_TOKEN_NOT_PROVIDED:
-			_loggingModuleRef.err(["Access token was not provided"])
-			return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": _responseCodes.AUTH_INVALID_TOKENS})
-		
-		_responseCodes.AUTH_CLIENT_TOKEN_NOT_PROVIDED:
-			_loggingModuleRef.err(["Access token was not provided"])
-			return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": _responseCodes.AUTH_CLIENT_TOKEN_NOT_PROVIDED})
-		
-		_responseCodes.SERVER_INTERNAL_ERROR:
-			_loggingModuleRef.err(["Access token was not provided"])
-			return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": _responseCodes.SERVER_INTERNAL_ERROR})
-	
 	# Log
 	_loggingModuleRef.log(["Successfully registed new UDP client"])
 
-	# Toggle isRegistered
-	_sessionDetails.isRegistered = true
-
+	# Toggle isRegistered and start heartbeat
+	_currentSessionDetails.isRegistered = true
+	_serverHeartbeatTimer.start()
+	
 	return _LMethodResponseData.new({})
 
-func createSession(maxConnections: int = 10, sessionName: String = "") -> _LMethodResponseData:
+func createSession(maxConnections: int = 10, sessionName: String = "", isSessionVisible: bool = true, sessionPassword: String = "") -> _LMethodResponseData:
 	# Fix for weird yield issues
 	yield(get_tree(), "idle_frame")
 
-	# Check if we are NOT registered
-	if !_sessionDetails.isRegistered:
+	# Check if we are registered
+	if !_currentSessionDetails.isRegistered:
 		_loggingModuleRef.wrn(["You must register before using this service"])
-		return _LMethodResponseData.new({"errorMessage": "You must register before using this service", "errorCode": _responseCodes.CONN_NOT_REGISTERED})
-	
-	# Check if we are currently hosting
-	if _sessionDetails.isHosting:
-		_loggingModuleRef.wrn(["You must destroy your current session before making one"])
-		return _LMethodResponseData.new({"errorMessage": "You must destroy your current session before making one", "errorCode": _responseCodes.CONN_ALREADY_HOSTING})
-	
-	# Check if we are in a session
-	if _sessionDetails.inSession:
-		_loggingModuleRef.wrn(["You must destroy your current session before making one"])
-		return _LMethodResponseData.new({"errorMessage": "You must destroy your current session before making one", "errorCode": _responseCodes.CONN_ALREADY_IN_SESSION})
+		return _LMethodResponseData.new({"errorMessage": "Not registered", "errorCode": _responseCodes.CONN_NOT_REGISTERED})
 
+	# Check if we are in a session
+	if _currentSessionDetails.inSession:
+		if _currentSessionDetails.isSessionHost:
+			_loggingModuleRef.wrn(["You are already hosting a session"])
+			return _LMethodResponseData.new({"errorMessage": "Already hosting a session", "errorCode": _responseCodes.CONN_ALREADY_HOSTING_SESSION})
+		
+		_loggingModuleRef.wrn(["You must leave your current session before making one"])
+		return _LMethodResponseData.new({"errorMessage": "Currently in session", "errorCode": _responseCodes.CONN_ALREADY_IN_SESSION})
+	
 	# Format payload
+	var authorizationHeader: Dictionary = {
+		"accessToken": _authModuleRef._tokens["accessToken"],
+		"clientToken": _lossConfigRef.clientToken,
+	}
+	var authorizationHeaderJWT: String = _authModuleRef._encryptWithJWT(authorizationHeader, _serverEncryptionKey)
 	var payload: Dictionary = {
+		"authorizationHeader": authorizationHeaderJWT,
 		"requestedRoute": "createSession",
-		"authorizationBearer": "%s:%s" % [_authModuleRef._tokens["accessToken"], _lossConfigRef.clientID],
-		"sessionInfo": {
-			"maxConnections": maxConnections,
+		"payload": {
 			"sessionName": sessionName,
+			"sessionMaxConnections": maxConnections,
+			"isSessionVisible": isSessionVisible,
+			"sessionPassword": sessionPassword
 		},
 	}
 
@@ -206,8 +211,8 @@ func createSession(maxConnections: int = 10, sessionName: String = "") -> _LMeth
 	var sendError: int = _client.put_packet(to_json(payload).to_utf8())
 	if sendError != OK:
 		_loggingModuleRef.err(["Error while sending packets to server"])
-		return _LMethodResponseData.new({"errorMessage": "Error while sending packets to server", "errorCode": sendError})
-	
+		return _LMethodResponseData.new({"errorMessage": "Error while sending packet to server", "errorCode": sendError})
+
 	# Log
 	_loggingModuleRef.log(["Request sent | Waiting for response"])
 
@@ -221,71 +226,58 @@ func createSession(maxConnections: int = 10, sessionName: String = "") -> _LMeth
 			yield(get_tree().create_timer(1), "timeout")
 			_loggingModuleRef.log(["Waiting...(%s seconds passed)" % [secondsPassed]])
 			secondsPassed += 1
-	
+
+	# Log
+	_loggingModuleRef.log(["Response recieved | Decoding"])
+
 	# Retrieve response
-	var responseData: Dictionary = _retrieve_packet()
+	var responseData: Dictionary = _retrieve_packet()	
 
 	# Error handling
-	match responseData.responseCode:
-		_responseCodes.CONN_NOT_REGISTERED:
-			_loggingModuleRef.wrn(["You must register before using this service"])
-			return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": _responseCodes.CONN_NOT_REGISTERED})
-		
-		_responseCodes.CONN_ALREADY_HOSTING:
-			_loggingModuleRef.wrn(["You must destroy your current session before making one"])
-			return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": _responseCodes.CONN_ALREADY_HOSTING})
-		
-		_responseCodes.CONN_ALREADY_IN_SESSION:
-			_loggingModuleRef.wrn(["You must leave your current session before making one"])
-			return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": _responseCodes.CONN_ALREADY_IN_SESSION})
-		
-		_responseCodes.AUTH_ACCESS_TOKEN_NOT_PROVIDED:
-			_loggingModuleRef.err(["Access token was not provided"])
-			return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": _responseCodes.AUTH_INVALID_TOKENS})
-		
-		_responseCodes.AUTH_CLIENT_TOKEN_NOT_PROVIDED:
-			_loggingModuleRef.err(["Access token was not provided"])
-			return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": _responseCodes.AUTH_CLIENT_TOKEN_NOT_PROVIDED})
-		
-		_responseCodes.SERVER_INTERNAL_ERROR:
-			_loggingModuleRef.err(["Access token was not provided"])
-			return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": _responseCodes.SERVER_INTERNAL_ERROR})
-
+	if responseData.responseCode != _responseCodes.CONN_ACKNOWLEDGED:
+		_loggingModuleRef.err([responseData.responseData.message])
+		return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": responseData.responseCode})
+	
 	# Log
 	_loggingModuleRef.log(["Successfully created new session"])
 
 	# Toggle inSession and supply the session code
-	_sessionDetails.inSession = true
-	_sessionDetails.sessionCode = responseData.responseData.sessionCode
+	_currentSessionDetails.inSession = true
+	_currentSessionDetails.currentSessionCode = responseData.responseData.sessionCode
 
-	return _LMethodResponseData.new({"returnData": {"sessionCode": _sessionDetails.sessionCode}})
+	return _LMethodResponseData.new({"returnData": {"sessionCode": responseData.responseData.sessionCode}})
 
 func findSessions(maxResults: int = 10) -> _LMethodResponseData:
 	# Fix for weird yield issues
 	yield(get_tree(), "idle_frame")
 
-	# Check if we are NOT registered
-	if !_sessionDetails.isRegistered:
+	# Check if we are registered
+	if !_currentSessionDetails.isRegistered:
 		_loggingModuleRef.wrn(["You must register before using this service"])
-		return _LMethodResponseData.new({"errorMessage": "You must register before using this service", "errorCode": _responseCodes.CONN_NOT_REGISTERED})
+		return _LMethodResponseData.new({"errorMessage": "Not registered", "errorCode": _responseCodes.CONN_NOT_REGISTERED})
 
 	# Format payload
+	var authorizationHeader: Dictionary = {
+		"accessToken": _authModuleRef._tokens["accessToken"],
+		"clientToken": _lossConfigRef.clientToken,
+	}
+	var authorizationHeaderJWT: String = _authModuleRef._encryptWithJWT(authorizationHeader, _serverEncryptionKey)
 	var payload: Dictionary = {
+		"authorizationHeader": authorizationHeaderJWT,
 		"requestedRoute": "findSessions",
-		"authorizationBearer": "%s:%s" % [_authModuleRef._tokens["accessToken"], _lossConfigRef.clientID],
-		"searchSettings": {
-			"maxResults": maxResults,
+		"payload": {
+				"maxResults": maxResults,
 		},
 	}
 
 	# Log
-	_loggingModuleRef.log(["Attempting to find results"])
+	_loggingModuleRef.log(["Attempting to find sessions"])
 
 	# Send request
 	var sendError: int = _client.put_packet(to_json(payload).to_utf8())
 	if sendError != OK:
 		_loggingModuleRef.err(["Error while sending packets to server"])
-		return _LMethodResponseData.new({"errorMessage": "Error while sending packets to server", "errorCode": sendError})
+		return _LMethodResponseData.new({"errorMessage": "Error while sending packet to server", "errorCode": sendError})
 	
 	# Log
 	_loggingModuleRef.log(["Request sent | Waiting for response"])
@@ -300,57 +292,54 @@ func findSessions(maxResults: int = 10) -> _LMethodResponseData:
 			yield(get_tree().create_timer(1), "timeout")
 			_loggingModuleRef.log(["Waiting...(%s seconds passed)" % [secondsPassed]])
 			secondsPassed += 1
-	
-	# Retrieve response
-	var responseData: Dictionary = _retrieve_packet()
-
-	# Error handling
-	match responseData.responseCode:
-		_responseCodes.CONN_NOT_REGISTERED:
-			_loggingModuleRef.wrn(["You must register before using this service"])
-			return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": _responseCodes.CONN_NOT_REGISTERED})
-		
-		_responseCodes.AUTH_ACCESS_TOKEN_NOT_PROVIDED:
-			_loggingModuleRef.err(["Access token was not provided"])
-			return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": _responseCodes.AUTH_INVALID_TOKENS})
-		
-		_responseCodes.AUTH_CLIENT_TOKEN_NOT_PROVIDED:
-			_loggingModuleRef.err(["Access token was not provided"])
-			return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": _responseCodes.AUTH_CLIENT_TOKEN_NOT_PROVIDED})
-		
-		_responseCodes.SERVER_INTERNAL_ERROR:
-			_loggingModuleRef.err(["Access token was not provided"])
-			return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": _responseCodes.SERVER_INTERNAL_ERROR})
 
 	# Log
-	_loggingModuleRef.log(["Successfully found new session(s)"])
+	_loggingModuleRef.log(["Response recieved | Decoding"])
+
+	# Retrieve response
+	var responseData: Dictionary = _retrieve_packet()	
+
+	# Error handling
+	if responseData.responseCode != _responseCodes.CONN_ACKNOWLEDGED:
+		_loggingModuleRef.err([responseData.responseData.message])
+		return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": responseData.responseCode})
+
+	# Log
+	_loggingModuleRef.log(["Successfully found new session(s)"])	
 
 	return _LMethodResponseData.new({"returnData": {"foundSessions": responseData.responseData.foundSessions}})
 
-func joinSession(sessionCode: String) -> _LMethodResponseData:
+func joinSession(sessionCode: String, sessionPassword: String = "") -> _LMethodResponseData:
 	# Fix for weird yield issues
 	yield(get_tree(), "idle_frame")
 
-	# Check if we are NOT registered
-	if !_sessionDetails.isRegistered:
+	# Check if we are registered
+	if !_currentSessionDetails.isRegistered:
 		_loggingModuleRef.wrn(["You must register before using this service"])
-		return _LMethodResponseData.new({"errorMessage": "You must register before using this service", "errorCode": _responseCodes.CONN_NOT_REGISTERED})
-	
-	# Check if we are currently hosting
-	if _sessionDetails.isHosting:
-		_loggingModuleRef.wrn(["You must destroy your current session before joining one"])
-		return _LMethodResponseData.new({"errorMessage": "You must destroy your current session before joining one", "errorCode": _responseCodes.CONN_ALREADY_HOSTING})
-	
-	# Check if we are in a session
-	if _sessionDetails.inSession:
-		_loggingModuleRef.wrn(["You must destroy your current session before joining one"])
-		return _LMethodResponseData.new({"errorMessage": "You must destroy your current session before joining one", "errorCode": _responseCodes.CONN_ALREADY_IN_SESSION})
+		return _LMethodResponseData.new({"errorMessage": "Not registered", "errorCode": _responseCodes.CONN_NOT_REGISTERED})
 
+	# Check if we are in a session
+	if _currentSessionDetails.inSession:
+		if _currentSessionDetails.isSessionHost:
+			_loggingModuleRef.wrn(["You are currently hosting a session | Destroy your current session before joining another session"])
+			return _LMethodResponseData.new({"errorMessage": "Currently hosting a session", "errorCode": _responseCodes.CONN_ALREADY_HOSTING_SESSION})
+		
+		_loggingModuleRef.wrn(["You must leave your current session joining one"])
+		return _LMethodResponseData.new({"errorMessage": "Already in a session", "errorCode": _responseCodes.CONN_ALREADY_IN_SESSION})
+	
 	# Format payload
+	var authorizationHeader: Dictionary = {
+		"accessToken": _authModuleRef._tokens["accessToken"],
+		"clientToken": _lossConfigRef.clientToken,
+	}
+	var authorizationHeaderJWT: String = _authModuleRef._encryptWithJWT(authorizationHeader, _serverEncryptionKey)
 	var payload: Dictionary = {
+		"authorizationHeader": authorizationHeaderJWT,
 		"requestedRoute": "joinSession",
-		"authorizationBearer": "%s:%s" % [_authModuleRef._tokens["accessToken"], _lossConfigRef.clientID],
-		"sessionCode": sessionCode,
+		"payload": {
+			"sessionCode": sessionCode,
+			"sessionPassword": sessionPassword,
+		},
 	}
 
 	# Log
@@ -360,8 +349,8 @@ func joinSession(sessionCode: String) -> _LMethodResponseData:
 	var sendError: int = _client.put_packet(to_json(payload).to_utf8())
 	if sendError != OK:
 		_loggingModuleRef.err(["Error while sending packets to server"])
-		return _LMethodResponseData.new({"errorMessage": "Error while sending packets to server", "errorCode": sendError})
-	
+		return _LMethodResponseData.new({"errorMessage": "Error while sending packet to server", "errorCode": sendError})
+
 	# Log
 	_loggingModuleRef.log(["Request sent | Waiting for response"])
 
@@ -376,82 +365,67 @@ func joinSession(sessionCode: String) -> _LMethodResponseData:
 			_loggingModuleRef.log(["Waiting...(%s seconds passed)" % [secondsPassed]])
 			secondsPassed += 1
 
+	# Log
+	_loggingModuleRef.log(["Response recieved | Decoding"])
+
 	# Retrieve response
-	var responseData: Dictionary = _retrieve_packet()
+	var responseData: Dictionary = _retrieve_packet()	
 
 	# Error handling
-	match responseData.responseCode:
-		_responseCodes.CONN_NOT_REGISTERED:
-			_loggingModuleRef.wrn(["You must register before using this service"])
-			return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": _responseCodes.CONN_NOT_REGISTERED})
-		
-		_responseCodes.CONN_ALREADY_HOSTING:
-			_loggingModuleRef.wrn(["You must destroy your current session before joining one"])
-			return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": _responseCodes.CONN_ALREADY_HOSTING})
-		
-		_responseCodes.CONN_ALREADY_IN_SESSION:
-			_loggingModuleRef.wrn(["You must destroy your current session before joining one"])
-			return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": _responseCodes.CONN_ALREADY_IN_SESSION})
-		
-		_responseCodes.CONN_SESSION_IS_FULL:
-			_loggingModuleRef.wrn(["The requested session is currently full"])
-			return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": _responseCodes.CONN_SESSION_IS_FULL})
-		
-		_responseCodes.CONN_SESSION_NOT_FOUND:
-			_loggingModuleRef.wrn(["The requested session was not found"])
-			return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": _responseCodes.CONN_SESSION_NOT_FOUND})
-
-		_responseCodes.AUTH_ACCESS_TOKEN_NOT_PROVIDED:
-			_loggingModuleRef.err(["Access token was not provided"])
-			return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": _responseCodes.AUTH_INVALID_TOKENS})
-		
-		_responseCodes.AUTH_CLIENT_TOKEN_NOT_PROVIDED:
-			_loggingModuleRef.err(["Access token was not provided"])
-			return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": _responseCodes.AUTH_CLIENT_TOKEN_NOT_PROVIDED})
-		
-		_responseCodes.SERVER_INTERNAL_ERROR:
-			_loggingModuleRef.err(["Access token was not provided"])
-			return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": _responseCodes.SERVER_INTERNAL_ERROR})
+	if responseData.responseCode != _responseCodes.CONN_ACKNOWLEDGED:
+		_loggingModuleRef.err([responseData.responseData.message])
+		return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": responseData.responseCode})
 
 	# Log
-	_loggingModuleRef.log(["Successfully joined new session"])
+	_loggingModuleRef.log(["Successfully joined session"])
 
-	# Toggle inSession and supply the session code
-	_sessionDetails.inSession = true
-	_sessionDetails.sessionCode = sessionCode
+	# Toggle inSession and currentSessionCode
+	_currentSessionDetails.inSession = true
+	_currentSessionDetails.currentSessionCode = sessionCode
 
 	return _LMethodResponseData.new({})
 
-func sendPacket(packet: PoolByteArray) -> _LMethodResponseData:
+func sendPacket(packet: Dictionary, remoteID: String = "0") -> _LMethodResponseData:
 	# Fix for weird yield issues
 	yield(get_tree(), "idle_frame")
 
-	# Check if we are NOT registered
-	if !_sessionDetails.isRegistered:
+	# Check if we are registered
+	if !_currentSessionDetails.isRegistered:
 		_loggingModuleRef.wrn(["You must register before using this service"])
-		return _LMethodResponseData.new({"errorMessage": "You must register before using this service", "errorCode": _responseCodes.CONN_NOT_REGISTERED})
+		return _LMethodResponseData.new({"errorMessage": "Not registered", "errorCode": _responseCodes.CONN_NOT_REGISTERED})
 	
-	# Check if we are NOT currently hosting
-	if !_sessionDetails.inSession:
-		_loggingModuleRef.wrn(["You must join or create a session before sending data"])
-		return _LMethodResponseData.new({"errorMessage": "You must join or create a session before sending data", "errorCode": _responseCodes.CONN_SESSION_NOT_FOUND})
+	# Check if we are in a session
+	if !_currentSessionDetails.inSession:
+		_loggingModuleRef.wrn(["You must be in a session before sending packets"])
+		return _LMethodResponseData.new({"errorMessage": "Not in session", "errorCode": _responseCodes.SESSION_REQUESTED_SESSION_NOT_FOUND})
 	
 	# Format payload
+	var authorizationHeader: Dictionary = {
+		"accessToken": _authModuleRef._tokens["accessToken"],
+		"clientToken": _lossConfigRef.clientToken,
+	}
+	var authorizationHeaderJWT: String = _authModuleRef._encryptWithJWT(authorizationHeader, _serverEncryptionKey)
 	var payload: Dictionary = {
+		"authorizationHeader": authorizationHeaderJWT,
 		"requestedRoute": "sendPacket",
-		"authorizationBearer": "%s:%s" % [_authModuleRef._tokens["accessToken"], _lossConfigRef.clientID],
-		"packetData": packet,
+		"payload": {
+			"packetData": packet,
+			"receivingPeer": remoteID,
+		},
 	}
 
 	# Log
-	_loggingModuleRef.log(["Attempting to send packets"])
+	_loggingModuleRef.log(["Attempting to send packet"])
 
 	# Send request
 	var sendError: int = _client.put_packet(to_json(payload).to_utf8())
 	if sendError != OK:
 		_loggingModuleRef.err(["Error while sending packets to server"])
-		return _LMethodResponseData.new({"errorMessage": "Error while sending packets to server", "errorCode": sendError})
-	
+		return _LMethodResponseData.new({"errorMessage": "Error while sending packet to server", "errorCode": sendError})
+
+	# Log
+	_loggingModuleRef.log(["Request sent | Waiting for response"])
+
 	# Wait for response
 	var secondsPassed: int = 0
 	while _serverPacketStorage.size() == 0:
@@ -462,32 +436,18 @@ func sendPacket(packet: PoolByteArray) -> _LMethodResponseData:
 			yield(get_tree().create_timer(1), "timeout")
 			_loggingModuleRef.log(["Waiting...(%s seconds passed)" % [secondsPassed]])
 			secondsPassed += 1
-	
+
+	# Log
+	_loggingModuleRef.log(["Response recieved | Decoding"])
+
 	# Retrieve response
-	var responseData: Dictionary = _retrieve_packet()
+	var responseData: Dictionary = _retrieve_packet()	
 
 	# Error handling
-	match responseData.responseCode:
-		_responseCodes.CONN_NOT_REGISTERED:
-			_loggingModuleRef.wrn(["You must register before using this service"])
-			return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": _responseCodes.CONN_NOT_REGISTERED})
-		
-		_responseCodes.CONN_SESSION_NOT_FOUND:
-			_loggingModuleRef.wrn(["You must join or create a session before sending data"])
-			return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": _responseCodes.CONN_SESSION_NOT_FOUND})
-		
-		_responseCodes.AUTH_ACCESS_TOKEN_NOT_PROVIDED:
-			_loggingModuleRef.err(["Access token was not provided"])
-			return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": _responseCodes.AUTH_INVALID_TOKENS})
-		
-		_responseCodes.AUTH_CLIENT_TOKEN_NOT_PROVIDED:
-			_loggingModuleRef.err(["Access token was not provided"])
-			return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": _responseCodes.AUTH_CLIENT_TOKEN_NOT_PROVIDED})
-		
-		_responseCodes.SERVER_INTERNAL_ERROR:
-			_loggingModuleRef.err(["Access token was not provided"])
-			return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": _responseCodes.SERVER_INTERNAL_ERROR})
-
+	if responseData.responseCode != _responseCodes.CONN_ACKNOWLEDGED:
+		_loggingModuleRef.err([responseData.responseData.message])
+		return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": responseData.responseCode})
+	
 	# Log
 	_loggingModuleRef.log(["Successfully sent packet"])
 
@@ -497,30 +457,39 @@ func destroySession() -> _LMethodResponseData:
 	# Fix for weird yield issues
 	yield(get_tree(), "idle_frame")
 
-	# Check if we are NOT registered
-	if !_sessionDetails.isRegistered:
+	# Check if we are registered
+	if !_currentSessionDetails.isRegistered:
 		_loggingModuleRef.wrn(["You must register before using this service"])
-		return _LMethodResponseData.new({"errorMessage": "You must register before using this service", "errorCode": _responseCodes.CONN_NOT_REGISTERED})
-	
-	# Check if we are NOT currently hosting
-	if !_sessionDetails.inSession:
-		_loggingModuleRef.wrn(["You must join or create a session before destroying a session"])
-		return _LMethodResponseData.new({"errorMessage": "You must join or create a session before destroying a session", "errorCode": _responseCodes.CONN_SESSION_NOT_FOUND})
-	
+		return _LMethodResponseData.new({"errorMessage": "Not registered", "errorCode": _responseCodes.CONN_NOT_REGISTERED})
+
+	# Check if we are in a session
+	if !_currentSessionDetails.inSession:
+		_loggingModuleRef.wrn(["You must be in a session before destroying one"])
+		return _LMethodResponseData.new({"errorMessage": "Not in session", "errorCode": _responseCodes.SESSION_REQUESTED_SESSION_NOT_FOUND})
+
 	# Format payload
+	var authorizationHeader: Dictionary = {
+		"accessToken": _authModuleRef._tokens["accessToken"],
+		"clientToken": _lossConfigRef.clientToken,
+	}
+	var authorizationHeaderJWT: String = _authModuleRef._encryptWithJWT(authorizationHeader, _serverEncryptionKey)
 	var payload: Dictionary = {
+		"authorizationHeader": authorizationHeaderJWT,
 		"requestedRoute": "destroySession",
-		"authorizationBearer": "%s:%s" % [_authModuleRef._tokens["accessToken"], _lossConfigRef.clientID],
 	}
 
 	# Log
 	_loggingModuleRef.log(["Attempting to destroy session"])
 
+
 	# Send request
 	var sendError: int = _client.put_packet(to_json(payload).to_utf8())
 	if sendError != OK:
 		_loggingModuleRef.err(["Error while sending packets to server"])
-		return _LMethodResponseData.new({"errorMessage": "Error while sending packets to server", "errorCode": sendError})
+		return _LMethodResponseData.new({"errorMessage": "Error while sending packet to server", "errorCode": sendError})
+
+	# Log
+	_loggingModuleRef.log(["Request sent | Waiting for response"])
 
 	# Wait for response
 	var secondsPassed: int = 0
@@ -532,92 +501,106 @@ func destroySession() -> _LMethodResponseData:
 			yield(get_tree().create_timer(1), "timeout")
 			_loggingModuleRef.log(["Waiting...(%s seconds passed)" % [secondsPassed]])
 			secondsPassed += 1
-	
+
+	# Log
+	_loggingModuleRef.log(["Response recieved | Decoding"])
+
 	# Retrieve response
-	var responseData: Dictionary = _retrieve_packet()
+	var responseData: Dictionary = _retrieve_packet()	
 
 	# Error handling
-	match responseData.responseCode:
-		_responseCodes.CONN_NOT_REGISTERED:
-			_loggingModuleRef.wrn(["You must register before using this service"])
-			return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": _responseCodes.CONN_NOT_REGISTERED})
-		
-		_responseCodes.CONN_SESSION_NOT_FOUND:
-			_loggingModuleRef.wrn(["You must join or create a session before destroying a session"])
-			return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": _responseCodes.CONN_SESSION_NOT_FOUND})
-		
-		_responseCodes.AUTH_ACCESS_TOKEN_NOT_PROVIDED:
-			_loggingModuleRef.err(["Access token was not provided"])
-			return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": _responseCodes.AUTH_INVALID_TOKENS})
-		
-		_responseCodes.AUTH_CLIENT_TOKEN_NOT_PROVIDED:
-			_loggingModuleRef.err(["Access token was not provided"])
-			return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": _responseCodes.AUTH_CLIENT_TOKEN_NOT_PROVIDED})
-		
-		_responseCodes.SERVER_INTERNAL_ERROR:
-			_loggingModuleRef.err(["Access token was not provided"])
-			return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": _responseCodes.SERVER_INTERNAL_ERROR})	
+	if responseData.responseCode != _responseCodes.CONN_ACKNOWLEDGED:
+		_loggingModuleRef.err([responseData.responseData.message])
+		return _LMethodResponseData.new({"errorMessage": responseData.responseData.message, "errorCode": responseData.responseCode})
 
 	# Log
 	_loggingModuleRef.log(["Successfully destroyed session"])
 
-	# Toggle inSession and supply the session code
-	_sessionDetails.inSession = false
-	_sessionDetails.sessionCode = ""
+	# Toggle inSession, isHosting, and currentSessionCode
+	_currentSessionDetails.inSession = false
+	_currentSessionDetails.isSessionHost = false
+	_currentSessionDetails.currentSessionCode = ""
 
 	return _LMethodResponseData.new({})
-
 
 # Private Methods
 func _poll_packets() -> void:
 	# Check if client is valid
 	if !is_instance_valid(_client):
 		return
-	
+
 	# Check if we are connected to a server
 	if !_client.is_connected_to_host():
 		return
-	
+
 	# Check if we have any available packets
 	if _client.get_available_packet_count() == 0:
 		return
-	
+
 	# Poll data
 	var decodedPacket: Dictionary = parse_json(_client.get_packet().get_string_from_utf8())
 
-	# Organize data
+	# Sort and organize
 	# Disregard empty packets (Means the server is offline)
 	if decodedPacket.empty():
 		return
 	
-	# Server type packets are for handling any errors/incoming data
+	# SERVER type packets are for handling any error/return data
 	if decodedPacket.responseType == "SERVER":
 		_serverPacketStorage.append(decodedPacket)
 		return
-	
-	# Session type packets are for handling any session specific events
+
+	# SESSION type packets are for handling any session specific events
 	if decodedPacket.responseType == "SESSION":
 		match decodedPacket.responseCode:
 			_responseCodes.SESSION_PEER_CONNECTED:
-				emit_signal("peer_connected")
+				emit_signal("peer_connected", decodedPacket.responseData.peerID)
 				return
 			
 			_responseCodes.SESSION_PEER_DISCONNECTED:
-				emit_signal("peer_disconnected")
+				emit_signal("peer_disconnected", decodedPacket.responseData.peerID)
 				return
 			
-			_responseCodes.SESSION_DESTROYED:
+			_responseCodes.SESSION_SESSION_DESTROYED:
 				emit_signal("session_destroyed")
 				return
 		return
-	
-	# Client type packets are for handling any client to client communication
+
+	# CLIENT type packets are for handling p2p/client to client communication
 	if decodedPacket.responseType == "CLIENT":
-		emit_signal("packet_recieved", decodedPacket.responseData)
+		emit_signal("packet_recieved", decodedPacket.responseData.packet, decodedPacket.responseData.peerID)
 		return
+	
+	# HEARTBEAT type packets are for handling the client-server heartbeat
+	if decodedPacket.responseType == "HEARTBEAT":
+		# Reset timer and send a response
+		_serverHeartbeatTimer.start()
+
+		# Format payload
+		var authorizationHeader: Dictionary = {
+			"accessToken": _authModuleRef._tokens["accessToken"],
+			"clientToken": _lossConfigRef.clientToken,
+		}
+		var authorizationHeaderJWT: String = _authModuleRef._encryptWithJWT(authorizationHeader, _serverEncryptionKey)
+		var payload: Dictionary = {
+			"authorizationHeader": authorizationHeaderJWT,
+			"requestedRoute": "clientHeartbeat",
+		}
+
+		_client.put_packet(to_json(payload).to_utf8())
+
 
 func _retrieve_packet() -> Dictionary:
 	return _serverPacketStorage.pop_front()
 
-	
+func _service_offline() -> void:
+	# Reset session data
+	_currentSessionDetails = {
+		isRegistered=false,
+		inSession=false,
+		isSessionHost=false,
+		currentSessionCode=""
+	}
 
+	# Emit signal
+	emit_signal("service_offline")
