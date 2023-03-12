@@ -20,11 +20,11 @@ const VERSION_STRING: String = "DEV/PRE-v1.0.0" #Major.Minor.BugFix
 # Public Variables
 var AuthorizationModule: _LAuthorizationClass
 var DatastoreModule: _LDatastoreClass
-var NetLiveModule: _LNetLiveClass
+var NetModule: _LNetClass
 
 # Private Variables
-var _Logging: _LoggingModule
-var _lossConfig: Dictionary
+var _LoggingModule: _LLoggingModule
+var _lossConfiguration: Dictionary
 
 # Onready Variables
 
@@ -41,32 +41,22 @@ var _lossConfig: Dictionary
 # Public Methods
 func initialize(lossConfig: Dictionary) -> void:
 	# Store configuration file
-	_lossConfig = lossConfig
+	_lossConfiguration = lossConfig
 
 	# Initialize the logger
-	_Logging = _LoggingModule.new()
-	_Logging.enableDevLogging(_lossConfig.enableDeveloperLogs)
+	_LoggingModule = _LLoggingModule.new()
 
-	# Logs
-	_Logging.log(["Initializing Godot LossSDK %s" % [VERSION_STRING]])
-	_Logging.devLog(
-		["\n\n----[Start Current Configuration]----\nClientID: \"%s\"\nAuthorization Server URL: \"%s\"\nDatastore Server URL: \"%s\"\nEnable Developer Logs: \"%s\"\n----[End Current Configuration]----\n" 
-		% [_lossConfig.clientID, _lossConfig.authorizationServerURL, _lossConfig.datastoreServerURL, _lossConfig.enableDeveloperLogs]])
+	# Startup
+	_LoggingModule.log(["Initializing Loss Godot Plugin | %s" % [VERSION_STRING]])
 
-	# Initialize sub modules
-	AuthorizationModule = _LAuthorizationClass.new(_Logging, _lossConfig)
-	DatastoreModule = _LDatastoreClass.new(AuthorizationModule, _Logging, _lossConfig)
-	NetLiveModule = _LNetLiveClass.new(AuthorizationModule, _Logging, _lossConfig)
+	# Initialize subsystems
+	AuthorizationModule = _LAuthorizationClass.new(_LoggingModule, _lossConfiguration)
+	DatastoreModule = _LDatastoreClass.new(_LoggingModule, _lossConfiguration, AuthorizationModule)
+	NetModule = _LNetClass.new(_LoggingModule, _lossConfiguration, AuthorizationModule)
 
-	# Add subsystems to tree
+	# Add to scenee tree
 	add_child(AuthorizationModule)
 	add_child(DatastoreModule)
-	add_child(NetLiveModule)
-
-func registerClient() -> _LMethodResponseData:
-	return yield(AuthorizationModule.register(), "completed")
-
-func refreshToken() -> _LMethodResponseData:
-	return yield(AuthorizationModule.refreshToken(), "completed")
+	add_child(NetModule)
 
 # Private Methods

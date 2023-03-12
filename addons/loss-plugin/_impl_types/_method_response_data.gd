@@ -7,8 +7,8 @@ class_name _LMethodResponseData
 extends Node
 
 # Docstring
-# Loopware Online Subsystem @ Godot Plugin || Exception Type
-# Generic data type that holds response/excepetion/error function data
+# Loopware Online Subsystem Godot Plugin @ Method Respomse Data Type || Generic data
+# type that can hold response, error, and function data
 
 # Signals
 
@@ -41,13 +41,17 @@ func _init(responseData: Dictionary) -> void:
 
 # Public Methods
 func hasError() -> bool:
-	if _errorMessage != null or _errorCode != null: return true
-	else: return false
+	if _errorMessage != null or _errorCode != null:
+		return true
+	else:
+		return false
 
 func getErrorDetails():
 	return [_errorMessage, _errorCode]
 
 func getReturnData():
-	if _returnData != null: return _returnData
+	if _returnData != null:
+		return _returnData
+
 
 # Private Methods

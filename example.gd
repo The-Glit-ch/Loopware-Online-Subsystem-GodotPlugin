@@ -6,8 +6,8 @@
 extends Node
 
 # Docstring
-# Loopware Online Subsystem @ Godot Plugin || Example file
-# Contains various examples on how to use the Loss API
+# Loopware Online Subsystems Godot Plugin @ Example File || Example File
+# Currently just used as a testing file to be honest
 
 # Signals
 
@@ -20,6 +20,7 @@ extends Node
 # Public Variables
 
 # Private Variables
+<<<<<<< HEAD
 <<<<<<< Updated upstream
 var _LossConfig: Dictionary  = {
 	"clientID": "ixjp/XpgawR+GzQopDDQIFWlnLS8Q/sbiiQju6Xw/vA0B2IwCti/6Fc3uL8qhxIPBg3Ohp0xQcSzbGAAg0BHBg==",
@@ -32,18 +33,28 @@ var _lossConfig: Dictionary = {
 	"clientToken": "/u4qVmfFPneidTXj2n47o+EeWBSAMP3zDA2COIIDtUcYF7iTmkCUFdLvldnokoJdR52W3yqkSGjqXutYZ7xZcA==",
 	"authorizationServerURL": "https://127.0.0.1:36210",
 	"datastoreServerURL": "https://127.0.0.1:36211",
+=======
+var _lossConfig: Dictionary = {
+	"clientToken": "/u4qVmfFPneidTXj2n47o+EeWBSAMP3zDA2COIIDtUcYF7iTmkCUFdLvldnokoJdR52W3yqkSGjqXutYZ7xZcA==",
+	"authorizationServerURL": "http://127.0.0.1:36210",
+	"datastoreServerURL": "http://127.0.0.1:36211",
+>>>>>>> e725398e9896a95f895a98b9c9f52e9aaa06ef39
 	"UDPPunchthrough": {
 		"IP": "127.0.0.1",
 		"PORT": 36212,
 		"ENCKEY": "cMlFfQeaK3/RXltoRVsfg+1E56Vxf3SiA9EG+/FqhVK2DoCLYgU4eeORVppeUE+9nzln4wkRzGDnuwtFrrMNWA==",
 	},
+<<<<<<< HEAD
 >>>>>>> Stashed changes
+=======
+>>>>>>> e725398e9896a95f895a98b9c9f52e9aaa06ef39
 }
 
 # Onready Variables
 
 # _ready()
 func _ready() -> void:
+<<<<<<< HEAD
 <<<<<<< Updated upstream
 	# Initializes the LossAPI
 	LossAPI.initialize(_LossConfig) 
@@ -295,6 +306,10 @@ func _ready() -> void:
 	
 
 >>>>>>> Stashed changes
+=======
+	pass
+	
+>>>>>>> e725398e9896a95f895a98b9c9f52e9aaa06ef39
 
 # _other()
 
