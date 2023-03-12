@@ -20,14 +20,27 @@ _global_script_classes=[ {
 "path": "res://addons/loss-plugin/_impl_classes/_datastore_class.gd"
 }, {
 "base": "Node",
-"class": "_LDatastoreServiceModule",
+"class": "_LDatastoreLeaderboardModule",
 "language": "GDScript",
+<<<<<<< Updated upstream
 "path": "res://addons/loss-plugin/_impl_module_classes/_datastore_datastore_service_class.gd"
+=======
+"path": "res://addons/loss-plugin/_impl_submodules/_datastore/_datastore_leaderboard_module.gd"
+>>>>>>> Stashed changes
 }, {
 "base": "Node",
+"class": "_LDatastoreServiceModule",
+"language": "GDScript",
+"path": "res://addons/loss-plugin/_impl_submodules/_datastore/_datastore_service_module.gd"
+}, {
+"base": "Reference",
 "class": "_LDatastoreStreamingModule",
 "language": "GDScript",
+<<<<<<< Updated upstream
 "path": "res://addons/loss-plugin/_impl_module_classes/_datastore_datastore_stream_class.gd"
+=======
+"path": "res://addons/loss-plugin/_impl_submodules/_datastore/_datastore_streaming_module.gd"
+>>>>>>> Stashed changes
 }, {
 "base": "Node",
 "class": "_LMethodResponseData",
@@ -42,12 +55,20 @@ _global_script_classes=[ {
 "base": "Node",
 "class": "_LResponseDataType",
 "language": "GDScript",
+<<<<<<< Updated upstream
 "path": "res://addons/loss-plugin/_impl_types/_response_data.gd"
+=======
+"path": "res://addons/loss-plugin/_impl_types/_method_response_data.gd"
+>>>>>>> Stashed changes
 }, {
 "base": "Node",
 "class": "_LUDPHolePunch",
 "language": "GDScript",
+<<<<<<< Updated upstream
 "path": "res://addons/loss-plugin/_impl_module_classes/_net_live_udp_holepunch_class.gd"
+=======
+"path": "res://addons/loss-plugin/_impl_classes/_net_class.gd"
+>>>>>>> Stashed changes
 }, {
 "base": "File",
 "class": "_LoggingModule",
@@ -57,6 +78,7 @@ _global_script_classes=[ {
 _global_script_class_icons={
 "_LAuthorizationClass": "",
 "_LDatastoreClass": "",
+"_LDatastoreLeaderboardModule": "",
 "_LDatastoreServiceModule": "",
 "_LDatastoreStreamingModule": "",
 "_LMethodResponseData": "",
@@ -83,6 +105,10 @@ enabled=PoolStringArray( "res://addons/loss-plugin/plugin.cfg" )
 [gui]
 
 common/drop_mouse_on_gui_input_disabled=true
+
+[network]
+
+ssl/certificates="res://cert.crt"
 
 [physics]
 

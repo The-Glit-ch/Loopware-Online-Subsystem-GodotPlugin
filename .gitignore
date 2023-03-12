@@ -12,3 +12,6 @@ data_*/
 
 # VSCode
 .vscode
+
+# Dev
+cert.crt

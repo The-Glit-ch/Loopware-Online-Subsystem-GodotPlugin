@@ -7,8 +7,8 @@ class_name _LAuthorizationClass
 extends HTTPRequest
 
 # Docstring
-# Loopware Online Subsystems @ Godot Plugin || Authorization Class
-# Handles all authorization requests coming in and out
+# Loopware Online Subsystem Godot Plugin @ Authorization Class || Provides methods for registering and refreshing
+# access tokens. Do note tokens do get refreshed automatically and should not be refreshed manually
 
 # Signals
 
@@ -21,133 +21,230 @@ extends HTTPRequest
 # Public Variables
 
 # Private Variables
-# Ref
-var _Logging: _LoggingModule
-var _lossConfig: Dictionary
+# References
+var _loggingModuleRef: _LLoggingModule
+var _lossConfigRef: Dictionary
 # Self
 var _tokens: Dictionary = {}
-var _accessTimeout: Timer
+var _tokenTimeoutTimer: Timer
+var _tokenTimeoutSeconds: int = 3500
 
 # Onready Variables
 
 # _init()
-func _init(loggingModule: _LoggingModule, lossConfig: Dictionary) -> void:
-	# Store a copy of the configuation file
-	_Logging = loggingModule
-	_lossConfig = lossConfig
+func _init(loggingModuleReference: _LLoggingModule, lossConfigurationReference: Dictionary) -> void:
+	# Save the references
+	_loggingModuleRef = loggingModuleReference
+	_lossConfigRef = lossConfigurationReference
 
-	# Courutine
-	_accessTimeout = Timer.new()
-	_accessTimeout.wait_time = 3300 #Token expires every 1hr so refresh it every 55 minutes || 3300
-	_accessTimeout.autostart = false
-	_accessTimeout.one_shot = true
-	_accessTimeout.name = "LossAPI-AuthCoroutine"
-	_accessTimeout.connect("timeout", self, "refreshToken")
-	add_child(_accessTimeout)
- 
-# func _ready() -> void:
-# 	return
+# _ready()
+func _ready() -> void:
+	# Automatically refresh tokens
+	_tokenTimeoutTimer = Timer.new()
+	_tokenTimeoutTimer.wait_time = _tokenTimeoutSeconds
+	_tokenTimeoutTimer.one_shot = true
+	_tokenTimeoutTimer.autostart = false
+	_tokenTimeoutTimer.name = "LossAPI-AuthCoroutine"
+	_tokenTimeoutTimer.connect("timeout", self, "refreshToken")
+
+	# Add to scene tree
+	add_child(_tokenTimeoutTimer)
 
 # _other()
 
 # Public Methods
 # /**
-# * Registers client with Authorization Server. Should be called via the LossAPI singleton and not through the AuthorizationClass
-# * @param { String } authorizationServerURL - The server URL for the authorization server
-# * @param { String } clientID - The client ID to register
-# * @returns { _LMethodReponseData } - Returns error messages and information
+# * Registers the client with the Loss authorization service
+# * @returns _LMethodResponseData
 # */
-func register() -> _LMethodResponseData:
-	# Make request
-	self.request("%s/auth/server/register" % [_lossConfig.authorizationServerURL], ["Authorization: Bearer %s" % [_lossConfig.clientID]], true, HTTPClient.METHOD_POST) 
+func registerClient() -> _LMethodResponseData:
+	# Fix wierd async issues
+	yield(get_tree(), "idle_frame")
 
-	# Logs
-	_Logging.log(["Registering client"])
-	_Logging.devLog(["Server URL: %s || Client ID: %s" % ["%s/auth/server/register" % [_lossConfig.authorizationServerURL], _lossConfig.clientID]])
-	
-	# Fetch and parse data
-	var responseData: _LResponseDataType = _LResponseDataType.new(yield(self, "request_completed"))
+	# Check if we already are registered
+	if _tokens.has("accessToken") && _tokens.has("refreshToken"):
+		return _LMethodResponseData.new({"errorMessage": "Already registered || Please logout before registering again"})
+
+	# Format the payload
+	var authorizationURI: String = "%s/authorization/api/v1/register" % [_lossConfigRef.authorizationServerURL]
+	var payloadHeader: PoolStringArray = ["Authorization: Bearer %s" % [_lossConfigRef.clientToken]]
+
+	# Log
+	_loggingModuleRef.log(["Attempting to register client"])
+
+	# Make a request
+	self.request(authorizationURI, payloadHeader, true, HTTPClient.METHOD_POST)
+
+	# Yield and fetch response
+	var responseData: _LHTTPResponseData = _LHTTPResponseData.new(yield(self, "request_completed"))
 
 	# Error handling
 	if responseData.functionStatus != OK:
-		_Logging.err(["Function error while registering client || Code: %s" % [responseData.functionStatus]])
+		_loggingModuleRef.err(["Function error while registering client || Code: %s" % [responseData.functionStatus]])
 		return _LMethodResponseData.new({"errorMessage": "Function error", "errorCode": responseData.functionStatus})
 	
 	if responseData.responseStatus != 200:
-		_Logging.err(["HTTP error while registering client || Code: %s | Message: %s" % [responseData.responseStatus, responseData.responseData.message]])
-		return _LMethodResponseData.new({"errorMessage": "HTTP(S) error || %s" % [responseData.responseData.message], "errorCode": responseData.responseStatus})
+		_loggingModuleRef.err(["HTTP(S) error while registering client || Code: %s | Message: %s" % [responseData.responseStatus, responseData.toJSON()["message"]]])
+		return _LMethodResponseData.new({"errorMessage": "HTTP(S) error || %s" % [responseData.toJSON()["message"]], "errorCode": "%s" % [responseData.responseStatus]})
 	
+	# Save tokens
+	var tokens: Dictionary = responseData.toJSON().data
+	_tokens.accessToken = tokens.accessToken
+	_tokens.refreshToken = tokens.refreshToken
+
+	# Log
+	_loggingModuleRef.log(["Successfully registered client"])
+
+	return _LMethodResponseData.new({})
+
+# /**
+# * Refreshes the current access token
+# * @returns _LMethodResponseData
+# */
+func refreshToken() -> _LMethodResponseData:
+	# Fix wierd async issues
+	yield(get_tree(), "idle_frame")
+
+	# Check if we are registered
+	if !_tokens.has("refreshToken"):
+		return _LMethodResponseData.new({"errorMessage": "You must register before refreshing tokens"})
+
+	# Format the payload
+	var authorizationURI: String = "%s/authorization/api/v1/refresh" % [_lossConfigRef.authorizationServerURL]
+	var payloadHeader: PoolStringArray = ["Authorization: Bearer %s:%s" % [_tokens.refreshToken, _lossConfigRef.clientToken]]
+
+	# Log
+	_loggingModuleRef.log(["Attempting to refresh access token"])
+
+	# Make a request
+	self.request(authorizationURI, payloadHeader, true, HTTPClient.METHOD_POST)
+
+	# Yield and fetch the response
+	var responseData: _LHTTPResponseData = _LHTTPResponseData.new(yield(self, "request_completed"))
+
+	# Error handling
+	if responseData.functionStatus != OK:
+		_loggingModuleRef.err(["Function error while refreshing access token || Code: %s" % [responseData.functionStatus]])
+		return _LMethodResponseData.new({"errorMessage": "Function error", "errorCode": responseData.functionStatus})
+	
+	if responseData.responseStatus != 200:
+		_loggingModuleRef.err(["HTTP(S) error while refreshing access token || Code: %s | Message: %s" % [responseData.responseStatus, responseData.toJSON()["message"]]])
+		return _LMethodResponseData.new({"errorMessage": "HTTP(S) error || %s" % [responseData.toJSON()["message"]], "errorCode": "%s" % [responseData.responseStatus]})
+
 	# Save token
-	_tokens["accessJWT"] = responseData.responseData.message.access_token
-	_tokens["refreshJWT"] = responseData.responseData.message.refresh_token
+	var newAccessToken: String = responseData.toJSON().data.accessToken
 
-	# Start courutine
-	_accessTimeout.start()
+	# Reset timer
+	_tokenTimeoutTimer.start()
 
-	# Logs
-	_Logging.log(["Client succesfully registered"])
-	_Logging.devLog(["\nClientID: %s\nAccessJWT: %s\nRefreshJWT: %s" % [_lossConfig.clientID, _tokens["accessJWT"], _tokens["refreshJWT"]]])
+	# Log
+	_loggingModuleRef.log(["Succesfully refreshed token"])
+
 	return _LMethodResponseData.new({})
 
 # /**
-# * Refreshes the AccessJWT. Should be called via the LossAPI singleton and not through the AuthorizationClass
-# * @returns { void }
+# * Logouts the client, invalidating their tokens
+# * @returns _LMethodResponseData
 # */
-func refreshToken() -> void:
-	# Make request
-	self.request("%s/auth/server/refresh" % [_lossConfig.authorizationServerURL], ["Authorization: Bearer %s" % [_tokens["refreshJWT"]]], true, HTTPClient.METHOD_POST)
+func logoutClient() -> _LMethodResponseData:
+	# Fix wierd async issues
+	yield(get_tree(), "idle_frame")
 
-	# Logs
-	_Logging.log(["Refreshing token"])
-	_Logging.devLog(["Server URL: %s || Refresh JWT: %s" % ["%s/auth/server/refresh" % [_lossConfig.authorizationServerURL], _tokens["refreshJWT"]]])
+	# Check if we are registered
+	if !_tokens.has("refreshToken"):
+		return _LMethodResponseData.new({"errorMessage": "You must register before logging out"})
 
-	# Fetch and parse data
-	var responseData: _LResponseDataType = _LResponseDataType.new(yield(self, "request_completed"))
+	# Format the payload
+	var authorizationURI: String = "%s/authorization/api/v1/logout" % [_lossConfigRef.authorizationServerURL]
+	var payloadHeader: PoolStringArray = ["Authorization: Bearer %s:%s" % [_tokens.refreshToken, _lossConfigRef.clientToken]]
+
+	# Log
+	_loggingModuleRef.log(["Attempting to logout Loss client"])
+
+	# Make a request
+	self.request(authorizationURI, payloadHeader, true, HTTPClient.METHOD_POST)
+
+	# Yield and fetch the response
+	var responseData: _LHTTPResponseData = _LHTTPResponseData.new(yield(self, "request_completed"))
 
 	# Error handling
 	if responseData.functionStatus != OK:
-		_Logging.err(["Function error while refreshing token || Code: %s" % [responseData.functionStatus]])
+		_loggingModuleRef.err(["Function error while logging out client || Code: %s" % [responseData.functionStatus]])
 		return _LMethodResponseData.new({"errorMessage": "Function error", "errorCode": responseData.functionStatus})
 	
 	if responseData.responseStatus != 200:
-		_Logging.err(["HTTP error while refreshing token || Code: %s | Message: %s" % [responseData.responseStatus, responseData.responseData.message]])
-		return _LMethodResponseData.new({"errorMessage": "HTTP(S) error || %s" % [responseData.responseData.message], "errorCode": responseData.responseStatus})
+		_loggingModuleRef.err(["HTTP(S) error while logging out client || Code: %s | Message: %s" % [responseData.responseStatus, responseData.toJSON()["message"]]])
+		return _LMethodResponseData.new({"errorMessage": "HTTP(S) error || %s" % [responseData.toJSON()["message"]], "errorCode": "%s" % [responseData.responseStatus]})
 	
-	# Save new token
-	_tokens["accessJWT"] = responseData.responseData.message.access_token
+	# Clear tokens
+	_tokens.clear()
 
-	# Reset courutine
-	_accessTimeout.start()
+	# Log
+	_loggingModuleRef.log(["Succesfully logged out"])
 
-	# Logs
-	_Logging.log(["Token refreshed"])
-	_Logging.devLog(["\nAccessJWT: %s\nRefreshJWT: %s" % [_tokens["accessJWT"], _tokens["refreshJWT"]]])
 	return _LMethodResponseData.new({})
 
-
 # /**
-# * Makes a secure HTTP(S) request by passing in the AccessJWT
-# * @param { int } requestMethod - The request method that should be use. Refer to HTTPClient.METHOD_XXXXXX
-# * @param { String } requestURL - The url to use for the request
-# * @param { Dictionary } requestBody - The data to send to the server
-# * @param { bool } formatAsDictionary - Should the return data be a Dictionary or PoolByteArray. True by default || Currently only used by the DatastoreModule.assetStream() method
-# * @returns { _LResponseDataType } - Returns a ResponseDataType with the response data
+# * Makes a request to any Loss service with and HTTP(S) endpoint.
+# * Passes along the access token in the Authorization header
+# * @param { String } requestURL - The URL to use for the request
+# * @param { int } requestMethod - The request method that should be use. Refer to "HTTPClient.METHOD_"
+# * @param { Dictionary } requestBody - The data sent to the server
+# * @returns _LMethodResponseData
 # */
-func secureRequest(requestMethod: int, requestURL: String, requestBody: Dictionary, formatAsDictionary: bool = true) -> _LResponseDataType:
-	# Make request
-	self.request(requestURL, ["Authorization: Bearer %s" % [_tokens["accessJWT"]], "Content-Type: application/json"], true, requestMethod, to_json(requestBody))
+func makeSecureRequest(requestURL: String, requestMethod: int, requestBody: Dictionary) -> _LMethodResponseData:
+	# Fix wierd async issues
+	yield(get_tree(), "idle_frame")
 
-	# Logs
-	_Logging.log(["Making secure request to server"])
-	_Logging.devLog(["Request URL: %s\nRequest Method: %s\nRequest Body: %s" % [requestURL, requestMethod, requestBody]])
+	# Check if we are registered
+	if !_tokens.has("refreshToken"):
+		return _LMethodResponseData.new({"errorMessage": "You must register before making secured HTTP(S) requests"})
+	
+	# Format payload
+	var payloadHeader: PoolStringArray = ["Authorization: Bearer %s:%s" % [_tokens.accessToken, _lossConfigRef.clientToken], "Content-Type: application/json"]
 
-	# Fetch and parse data
-	var responseData: _LResponseDataType = _LResponseDataType.new(yield(self, "request_completed"), formatAsDictionary)
+	# Log
+	_loggingModuleRef.log(["Attempting to make a secure request to the server"])
+
+	# Make a request
+	self.request(requestURL, payloadHeader, true, requestMethod, to_json(requestBody))
+
+	# Yield and fetch the response
+	var responseData: _LHTTPResponseData = _LHTTPResponseData.new(yield(self, "request_completed"))
+
+	# Log
+	_loggingModuleRef.log(["Successfully retrieved data from secured request"])
 
 	# Return data
-	return responseData
-
+	return _LMethodResponseData.new({"returnData": responseData})
 
 # Private Methods
-func _returnAccessJWT() -> String:
-	return _tokens["accessJWT"]
+# /**
+# * Generates a JWT that can be used to securely transmit sensitive data
+# * @param { PoolByteArray } payload - The data to which encrypt
+# * @returns _LMethodResponseData
+# */
+func _encryptWithJWT(payload: Dictionary, secret: String) -> String:
+	# Define the JWT
+	var crypto: Crypto = Crypto.new()
+	var jwtHeader: Dictionary = {alg="HS256", typ="JWT"}
+	var jwtPayload: Dictionary = payload
+
+	# Encode the data
+	var encodedHeader: String = base64URLEncode(to_json(jwtHeader).to_utf8())
+	var encodedPayload: String = base64URLEncode(to_json(jwtPayload).to_utf8())
+
+	# Generate signature
+	var hmacSignature: PoolByteArray = crypto.hmac_digest(HashingContext.HASH_SHA256, secret.to_utf8(), (encodedHeader+"."+encodedPayload).to_utf8())
+	var encodedSignature: String = base64URLEncode(hmacSignature)
+
+	# Return JWT
+	return "%s.%s.%s" % [encodedHeader, encodedPayload, encodedSignature]
+
+# /**
+# * Base64 URL encode
+# * @param { PoolByteArray } text - Text to encode
+# * @returns { String } - Encoded string
+# */
+func base64URLEncode(text: PoolByteArray) -> String:
+	return Marshalls.raw_to_base64(text).replacen("+","-").replacen("/","_").replacen("=","")

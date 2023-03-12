@@ -20,18 +20,31 @@ extends Node
 # Public Variables
 
 # Private Variables
+<<<<<<< Updated upstream
 var _LossConfig: Dictionary  = {
 	"clientID": "ixjp/XpgawR+GzQopDDQIFWlnLS8Q/sbiiQju6Xw/vA0B2IwCti/6Fc3uL8qhxIPBg3Ohp0xQcSzbGAAg0BHBg==",
 	"authorizationServerURL": "http://127.0.0.1:36210",
 	"datastoreServerURL": "http://127.0.0.1:36211",
 	"UDPPunchThroughServer": ["127.0.0.1", 36212],
 	"enableDeveloperLogs": false
+=======
+var _lossConfig: Dictionary = {
+	"clientToken": "/u4qVmfFPneidTXj2n47o+EeWBSAMP3zDA2COIIDtUcYF7iTmkCUFdLvldnokoJdR52W3yqkSGjqXutYZ7xZcA==",
+	"authorizationServerURL": "https://127.0.0.1:36210",
+	"datastoreServerURL": "https://127.0.0.1:36211",
+	"UDPPunchthrough": {
+		"IP": "127.0.0.1",
+		"PORT": 36212,
+		"ENCKEY": "cMlFfQeaK3/RXltoRVsfg+1E56Vxf3SiA9EG+/FqhVK2DoCLYgU4eeORVppeUE+9nzln4wkRzGDnuwtFrrMNWA==",
+	},
+>>>>>>> Stashed changes
 }
 
 # Onready Variables
 
 # _ready()
 func _ready() -> void:
+<<<<<<< Updated upstream
 	# Initializes the LossAPI
 	LossAPI.initialize(_LossConfig) 
 	
@@ -189,6 +202,99 @@ func _ready() -> void:
 	# 	return
 	
 	# # < --------------------------------------------------------------------------------------- > #
+=======
+	# Initlize
+	LossAPI.initialize(_lossConfig)
+
+	# Initialize some variables
+	var methodResponse: _LMethodResponseData
+
+	# <--- Register --->
+	methodResponse = yield(LossAPI.AuthorizationModule.registerClient(), "completed")
+
+	# Error checking
+	if methodResponse.hasError():
+		print("ERR:", methodResponse.getErrorDetails())
+	
+	# <--- Register --->
+
+	
+	# <--- New Leaderboard -->
+	methodResponse = yield(LossAPI.DatastoreModule.LeaderboardService.newLeaderboard("myLeaderboard"), "completed")
+
+	# Error checking
+	if methodResponse.hasError():
+		print("ERR:", methodResponse.getErrorDetails())
+	# <--- New Leaderboard -->
+
+	
+	# <--- New Category --->
+	methodResponse = yield(LossAPI.DatastoreModule.LeaderboardService.newCategory("myLeaderboard", "myCategory"), "completed")
+
+	# Error checking
+	if methodResponse.hasError():
+		print("ERR:", methodResponse.getErrorDetails())
+	# <--- New Category --->
+
+	
+	# <--- Add Record --->
+	methodResponse = yield(LossAPI.DatastoreModule.LeaderboardService.addRecord("myLeaderboard", "myCategory", "ACME", {"dickSize": "HUGE"}), "completed")
+
+	# Error checking
+	if methodResponse.hasError():
+		print("ERR:", methodResponse.getErrorDetails())
+	# <--- Add Record --->
+
+	
+	# <--- Fetch Records --->
+	methodResponse = yield(LossAPI.DatastoreModule.LeaderboardService.fetchRecords("myLeaderboard", "myCategory"), "completed")
+
+	# Error checking
+	if methodResponse.hasError():
+		print("ERR:", methodResponse.getErrorDetails())
+	
+	print("Records: ", methodResponse.getReturnData())
+	# <--- Fetch Records --->
+
+	
+	# <--- Update Records --->
+	methodResponse = yield(LossAPI.DatastoreModule.LeaderboardService.updateRecord("myLeaderboard", "myCategory", "ACME", {"dickSize": "SMALL"}), "completed")
+
+	# Error checking
+	if methodResponse.hasError():
+		print("ERR:", methodResponse.getErrorDetails())
+	# <--- Update Records --->
+
+	
+	# <--- Fetch Records --->
+	methodResponse = yield(LossAPI.DatastoreModule.LeaderboardService.fetchRecords("myLeaderboard", "myCategory"), "completed")
+
+	# Error checking
+	if methodResponse.hasError():
+		print("ERR:", methodResponse.getErrorDetails())
+	
+	print("Records: ", methodResponse.getReturnData())
+	# <--- Fetch Records --->
+
+	
+	# <-- Delete Category --->
+	methodResponse = yield(LossAPI.DatastoreModule.LeaderboardService.deleteCatgeory("myLeaderboard", "myCategory"), "completed")
+
+	# Error checking
+	if methodResponse.hasError():
+		print("ERR:", methodResponse.getErrorDetails())
+	# <-- Delete Category --->
+
+	# <-- Delete Leaderboard --->
+	methodResponse = yield(LossAPI.DatastoreModule.LeaderboardService.deleteLeaderboard("myLeaderboard"), "completed")
+
+	# Error checking
+	if methodResponse.hasError():
+		print("ERR:", methodResponse.getErrorDetails())
+	# <-- Delete Leaderboard --->
+	
+
+>>>>>>> Stashed changes
 
 # _other()
 

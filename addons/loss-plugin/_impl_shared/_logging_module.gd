@@ -3,7 +3,7 @@
 # Class
 class_name _LoggingModule 
 
-# Class & Extends
+# Extends
 extends File
 
 # Docstring

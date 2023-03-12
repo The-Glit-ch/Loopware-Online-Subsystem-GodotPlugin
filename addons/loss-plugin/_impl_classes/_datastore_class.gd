@@ -7,8 +7,8 @@ class_name _LDatastoreClass
 extends Node
 
 # Docstring
-# Loopware Online Subsystem @ Godot Plugin || Datastore Class
-# Parent class that contain sub modules that relate to the Datastore Service
+# Loopware Online Subsystem Godot Plugin @ Datastore Class || Parent class that 
+# contain submodules that relate to the Datastore Service
 
 # Signals
 
@@ -20,32 +20,28 @@ extends Node
 
 # Public Variables
 var DatastoreService: _LDatastoreServiceModule
-var Streaming: _LDatastoreStreamingModule
+var StreamingService: _LDatastoreStreamingModule
+var LeaderboardService: _LDatastoreLeaderboardModule
 
 # Private Variables
-var _AuthorizationModule: _LAuthorizationClass
-var _Logging: _LoggingModule
-var _lossConfig: Dictionary
 
 # Onready Variables
 
 # _init()
-func _init(authorizationRefrence: _LAuthorizationClass, loggingModule: _LoggingModule, lossConfig: Dictionary) -> void:
-	# Save reference
-	_AuthorizationModule = authorizationRefrence
-	_Logging = loggingModule
-	_lossConfig = lossConfig
+func _init(loggingModuleReference: _LLoggingModule, lossConfigurationReference: Dictionary, authorizationModuleReference: _LAuthorizationClass) -> void:
+	# Initiate submodules
+	DatastoreService = _LDatastoreServiceModule.new(loggingModuleReference, lossConfigurationReference, authorizationModuleReference)
+	StreamingService = _LDatastoreStreamingModule.new(loggingModuleReference, lossConfigurationReference, authorizationModuleReference)
+	LeaderboardService = _LDatastoreLeaderboardModule.new(loggingModuleReference, lossConfigurationReference, authorizationModuleReference)
 
-	# Initiate subsystems
-	DatastoreService = _LDatastoreServiceModule.new(_AuthorizationModule, _Logging, _lossConfig)
-	Streaming = _LDatastoreStreamingModule.new(_AuthorizationModule, _Logging, _lossConfig)
+	# Add to scene tree
 	add_child(DatastoreService)
-	add_child(Streaming)
+	add_child(StreamingService)
+	add_child(LeaderboardService)
+
 
 
 # _ready()
-# func _ready() -> void:
-# 	pass
 
 # _other()
 
