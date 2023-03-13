@@ -74,5 +74,4 @@ func streamData(filePath: String) -> _LMethodResponseData:
 
 	return _LMethodResponseData.new({"returnData": streamData})
 
-
 # Private Methods
