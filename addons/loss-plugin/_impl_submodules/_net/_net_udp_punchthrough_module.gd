@@ -589,7 +589,6 @@ func _poll_packets() -> void:
 
 		_client.put_packet(to_json(payload).to_utf8())
 
-
 func _retrieve_packet() -> Dictionary:
 	return _serverPacketStorage.pop_front()
 

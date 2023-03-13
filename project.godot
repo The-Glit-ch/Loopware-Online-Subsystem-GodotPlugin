@@ -12,42 +12,27 @@ _global_script_classes=[ {
 "base": "HTTPRequest",
 "class": "_LAuthorizationClass",
 "language": "GDScript",
-"path": "res://addons/loss-plugin/_impl_classes/_authorization_class.gd.gd"
+"path": "res://addons/loss-plugin/_impl_classes/_authorization_class.gd"
 }, {
 "base": "Node",
 "class": "_LDatastoreClass",
 "language": "GDScript",
-"path": "res://addons/loss-plugin/_impl_classes/_datastore_class.gd.gd"
+"path": "res://addons/loss-plugin/_impl_classes/_datastore_class.gd"
 }, {
 "base": "Node",
 "class": "_LDatastoreLeaderboardModule",
 "language": "GDScript",
-<<<<<<< HEAD
-<<<<<<< Updated upstream
-"path": "res://addons/loss-plugin/_impl_module_classes/_datastore_datastore_service_class.gd"
-=======
 "path": "res://addons/loss-plugin/_impl_submodules/_datastore/_datastore_leaderboard_module.gd"
->>>>>>> Stashed changes
-=======
-"path": "res://addons/loss-plugin/_impl_submodules/_datastore/_datastore_service_module.gd.gd"
->>>>>>> e725398e9896a95f895a98b9c9f52e9aaa06ef39
 }, {
 "base": "Node",
 "class": "_LDatastoreServiceModule",
 "language": "GDScript",
 "path": "res://addons/loss-plugin/_impl_submodules/_datastore/_datastore_service_module.gd"
 }, {
-"base": "Reference",
+"base": "Node",
 "class": "_LDatastoreStreamingModule",
 "language": "GDScript",
-<<<<<<< HEAD
-<<<<<<< Updated upstream
-"path": "res://addons/loss-plugin/_impl_module_classes/_datastore_datastore_stream_class.gd"
-=======
 "path": "res://addons/loss-plugin/_impl_submodules/_datastore/_datastore_streaming_module.gd"
->>>>>>> Stashed changes
-=======
-"path": "res://addons/loss-plugin/_impl_submodules/_datastore/_datastore_streaming_module.gd.gd"
 }, {
 "base": "Node",
 "class": "_LHTTPResponseData",
@@ -58,44 +43,21 @@ _global_script_classes=[ {
 "class": "_LLoggingModule",
 "language": "GDScript",
 "path": "res://addons/loss-plugin/_impl_shared/_logging_module.gd"
->>>>>>> e725398e9896a95f895a98b9c9f52e9aaa06ef39
 }, {
 "base": "Node",
 "class": "_LMethodResponseData",
 "language": "GDScript",
-"path": "res://addons/loss-plugin/_impl_types/_method_response_data.gd.gd"
+"path": "res://addons/loss-plugin/_impl_types/_method_response_data.gd"
 }, {
 "base": "Node",
 "class": "_LNetClass",
 "language": "GDScript",
-"path": "res://addons/loss-plugin/_impl_classes/_net_class.gd.gd"
+"path": "res://addons/loss-plugin/_impl_classes/_net_class.gd"
 }, {
 "base": "Node",
 "class": "_LNetUDPPunchthroughServiceModule",
 "language": "GDScript",
-<<<<<<< HEAD
-<<<<<<< Updated upstream
-"path": "res://addons/loss-plugin/_impl_types/_response_data.gd"
-=======
-"path": "res://addons/loss-plugin/_impl_types/_method_response_data.gd"
->>>>>>> Stashed changes
-}, {
-"base": "Node",
-"class": "_LUDPHolePunch",
-"language": "GDScript",
-<<<<<<< Updated upstream
-"path": "res://addons/loss-plugin/_impl_module_classes/_net_live_udp_holepunch_class.gd"
-=======
-"path": "res://addons/loss-plugin/_impl_classes/_net_class.gd"
->>>>>>> Stashed changes
-}, {
-"base": "File",
-"class": "_LoggingModule",
-"language": "GDScript",
-"path": "res://addons/loss-plugin/_impl_shared/_logging_module.gd"
-=======
 "path": "res://addons/loss-plugin/_impl_submodules/_net/_net_udp_punchthrough_module.gd"
->>>>>>> e725398e9896a95f895a98b9c9f52e9aaa06ef39
 } ]
 _global_script_class_icons={
 "_LAuthorizationClass": "",
@@ -112,7 +74,7 @@ _global_script_class_icons={
 
 [application]
 
-config/name="LOSS-GodotPlugin"
+config/name="Loopware-Online-Subsystem-Godot-Plugin"
 run/main_scene="res://Example.tscn"
 config/icon="res://icon.png"
 
@@ -127,10 +89,6 @@ enabled=PoolStringArray( "res://addons/loss-plugin/plugin.cfg" )
 [gui]
 
 common/drop_mouse_on_gui_input_disabled=true
-
-[network]
-
-ssl/certificates="res://cert.crt"
 
 [physics]
 
